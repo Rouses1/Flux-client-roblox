@@ -16,14 +16,12 @@ local function new(className, props)
     return obj
 end
 
--- === Главное GUI ===
 local screenGui = new("ScreenGui", {
     Name = "FluxClientGUI",
     ResetOnSpawn = false,
     Parent = playerGui,
 })
 
--- === Watermark ===
 local watermark = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 160, 0, 30),
@@ -45,7 +43,6 @@ new("TextLabel", {
     TextYAlignment = Enum.TextYAlignment.Center,
 })
 
--- === Окно логина ===
 local loginFrame = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 300, 0, 160),
@@ -108,7 +105,6 @@ local loginError = new("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
--- === Главное меню ===
 local floatBtn = new("Frame", {
     Name = "FloatButton",
     Parent = screenGui,
@@ -172,19 +168,17 @@ local searchBox = new("TextBox", {
 })
 new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
--- === Переменные функций ===
 local ESP_Enabled = false
 local Tracer_Enabled = false
 local Aimbot_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
 local Speed_Enabled = false
-local WalkSpeed_Value = 40  -- увеличенный спид
+local WalkSpeed_Value = 40
 
 local ESP_Connections = {}
 local OriginalSizes = {}
 
--- === Функции ESP и Aimbot ===
 local function createTracer()
     local tracer = Drawing.new("Line")
     tracer.Color = Color3.new(1,1,1)
@@ -207,51 +201,51 @@ local function createESP(plr)
     local box = createBox()
     local tracer = createTracer()
 
-    local conn    
-    conn = RunService.RenderStepped:Connect(function()    
-        local visible = false    
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then    
-            local hrp = plr.Character.HumanoidRootPart    
-            local head = plr.Character:FindFirstChild("Head")    
-            local pos, vis = camera:WorldToViewportPoint(hrp.Position)    
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        local visible = false
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            local head = plr.Character:FindFirstChild("Head")
+            local pos, vis = camera:WorldToViewportPoint(hrp.Position)
 
-            if vis then    
-                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))    
-                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))    
-                local height = footPos.Y - headPos.Y    
-                local width = height / 2    
+            if vis then
+                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+                local height = footPos.Y - headPos.Y
+                local width = height / 2
 
-                if ESP_Enabled then    
-                    box.Size = Vector2.new(width, height)    
-                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)    
-                    box.Visible = true    
-                else    
-                    box.Visible = false    
-                end    
+                if ESP_Enabled then
+                    box.Size = Vector2.new(width, height)
+                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
+                    box.Visible = true
+                else
+                    box.Visible = false
+                end
 
-                if Tracer_Enabled then    
-                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)    
-                    tracer.To = Vector2.new(pos.X, pos.Y)    
-                    tracer.Visible = true    
-                else    
-                    tracer.Visible = false    
-                end    
+                if Tracer_Enabled then
+                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                    tracer.To = Vector2.new(pos.X, pos.Y)
+                    tracer.Visible = true
+                else
+                    tracer.Visible = false
+                end
 
-                visible = true    
-            end    
-        end    
+                visible = true
+            end
+        end
 
-        if not visible then    
-            box.Visible = false    
-            tracer.Visible = false    
-        end    
-    end)    
+        if not visible then
+            box.Visible = false
+            tracer.Visible = false
+        end
+    end)
 
-    plr.AncestryChanged:Connect(function()    
-        box:Remove()    
-        tracer:Remove()    
-        conn:Disconnect()    
-    end)    
+    plr.AncestryChanged:Connect(function()
+        box:Remove()
+        tracer:Remove()
+        conn:Disconnect()
+    end)
 
     ESP_Connections[plr] = conn
 end
@@ -280,7 +274,6 @@ local function getClosestTarget()
     return closestPlayer
 end
 
--- === Hitbox Expand ===
 local function expandHitboxes()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -320,7 +313,6 @@ local function resetHitboxes()
     OriginalSizes = {}
 end
 
--- === Infinity Jump ===
 UserInputService.JumpRequest:Connect(function()
     if InfinityJump_Enabled then
         local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -330,7 +322,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- === Speed с авто-восстановлением ===
 RunService.RenderStepped:Connect(function()
     if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -346,7 +337,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- === UI Кнопки ===
 local btnWidth = 0.4
 local btnHeight = 28
 local btnSpacingY = 40
@@ -412,12 +402,11 @@ createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
     return Speed_Enabled
 end)
 
--- === Player List (уменьшен в 2.5 раза) ===
 local playerListEnabled = false
 
 local playerListFrame = new("Frame", {
     Parent = screenGui,
-    Size = UDim2.new(0, 220 / 2.5, 0, 300 / 2.5),  -- уменьшен размер
+    Size = UDim2.new(0, 220 / 2.5, 0, 300 / 2.5),
     Position = UDim2.new(1, - (230 / 2.5), 0, 10),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.4,
@@ -460,20 +449,6 @@ local function updatePlayerList()
 
     local totalHeight = 0
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-
-local function updatePlayerList()
-    for _, child in pairs(playerListScrollingFrame:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-
-    local totalHeight = 0
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local plrLabel = new("TextLabel", {
@@ -487,40 +462,12 @@ local function updatePlayerList()
                     TextXAlignment = Enum.TextXAlignment.Left,
                     LayoutOrder = totalHeight + 1,
                 })
-                totalHeight = totalHeight + (20 / 2.5)
+                totalHeight
+
+totalHeight = totalHeight + (20 / 2.5)
             end
         end
     end
 
     playerListScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 end
-
--- Создаем кнопку для включения/отключения Player List
-createToggleButton("Player List", 0.05, 85 + btnSpacingY * 3, function()
-    playerListEnabled = not playerListEnabled
-    playerListFrame.Visible = playerListEnabled
-    if playerListEnabled then
-        updatePlayerList()
-    end
-    return playerListEnabled
-end)
-
--- Обновляем список игроков при входе/выходе игроков
-Players.PlayerAdded:Connect(function()
-    if playerListEnabled then
-        updatePlayerList()
-    end
-end)
-
-Players.PlayerRemoving:Connect(function()
-    if playerListEnabled then
-        updatePlayerList()
-    end
-end)
-
--- Обновляем список при респавне локального игрока (если нужно)
-player.CharacterAdded:Connect(function()
-    if playerListEnabled then
-        updatePlayerList()
-    end
-end)

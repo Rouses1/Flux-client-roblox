@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -387,141 +386,23 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- === Функция для перетаскивания GUI ===
-local function makeDraggable(gui)
-    local dragging, dragInput, mousePos, framePos
+-- === Логика входа ===
+local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
 
-    gui.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            mousePos = input.Position
-            framePos = gui.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    gui.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - mousePos
-            gui.Position = UDim2.new(
-                framePos.X.Scale,
-                framePos.X.Offset + delta.X,
-                framePos.Y.Scale,
-                framePos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
--- === HUD ===
-local function createHUD()
-    local HUD_Frame = new("Frame", {
-        Name = "HUD",
-        Parent = screenGui,
-        Size = UDim2.new(0, 150, 0, 70),
-        Position = UDim2.new(0.8, 0, 0.05, 0),
-        BackgroundColor3 = Color3.fromRGB(0,0,0),
-        BackgroundTransparency = 0.3,
-        ZIndex = 50,
-    })
-    new("UICorner", {Parent = HUD_Frame, CornerRadius = UDim.new(0,8)})
-    new("UIStroke", {Parent = HUD_Frame, Color = Color3.fromRGB(255,255,255), Transparency = 0.6})
-
-    local fpsLabel = new("TextLabel", {
-        Parent = HUD_Frame,
-        Size = UDim2.new(1, -10, 0, 20),
-        Position = UDim2.new(0, 5, 0, 5),
-        BackgroundTransparency = 1,
-        Text = "FPS: 0",
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    local pingLabel = new("TextLabel", {
-        Parent = HUD_Frame,
-        Size = UDim2.new(1, -10, 0, 20),
-        Position = UDim2.new(0, 5, 0, 25),
-        BackgroundTransparency = 1,
-        Text = "Ping: 0 ms",
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    local speedLabel = new("TextLabel", {
-        Parent = HUD_Frame,
-        Size = UDim2.new(1, -10, 0, 20),
-        Position = UDim2.new(0, 5, 0, 45),
-        BackgroundTransparency = 1,
-        Text = "Speed: 0",
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    local lastFrameTime = tick()
-    local frameCount = 0
-    local fps = 0
-
-    RunService.RenderStepped:Connect(function()
-        -- Считаем FPS
-        frameCount += 1
-        local now = tick()
-        if now - lastFrameTime >= 1 then
-            fps = frameCount
-            frameCount = 0
-            lastFrameTime = now
-            fpsLabel.Text = "FPS: "..fps
-        end
-
-        -- Пинг (пример, обновляется раз в секунду)
-        -- В Roblox нет прямого метода узнать пинг клиента, но можно примерно использовать NetworkStats
-        local stats = stats or game:GetService("Stats")
-        local pingMs = math.floor(stats.Network.ServerStatsItem["Data Ping"]:GetValue() * 1000)
-        pingLabel.Text = "Ping: "..pingMs.." ms"
-
-        -- Скорость игрока
-        local char = player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local vel = char.HumanoidRootPart.Velocity
-            local speed = math.floor(Vector3.new(vel.X, 0, vel.Z).Magnitude)
-            speedLabel.Text = "Speed: "..speed
-        else
-            speedLabel.Text = "Speed: 0"
-        end
-    end)
-
-    makeDraggable(HUD_Frame)
-    HUD_Frame.Active = true
-
-    return HUD_Frame
-end
-
-local HUD = createHUD()
-
-makeDraggable(floatBtn)
-floatBtn.Active = true
+loginButton.MouseButton1Click:Connect(function()
+    if passwordBox.Text == CORRECT_PASSWORD then
+        floatBtn.Visible = true
+        loginFrame.Visible = false  -- Скрываем окно логина после правильного пароля
+        loginError.Text = ""
+    else
+        loginError.Text = "Неверный пароль!"
+    end
+end)
 
 btn.MouseButton1Click:Connect(function()
     window.Visible = not window.Visible
-    floatBtn.Visible = not window.Visible
 end)
 
 btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
-    floatBtn.Visible = true
 end)

@@ -185,16 +185,17 @@ local ESP_Enabled = false
 local Tracer_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
-local Speed_Enabled = false -- Обычная скорость
+local Speed_Enabled = false -- Обычная скорость (фиксированная)
 local SpeedPlus_Enabled = false -- Speed+ (с катушкой)
 local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
-local WalkSpeed_Value = 16
 local ESP_Connections = {}
 local OriginalSizes = {}
 local BrainrotESP = {}
+local HasSpeedCoilBuff = false -- Для сохранения эффекта Speed+
+local OriginalWalkSpeed = 16 -- Стандартная скорость
 
 -- Цвета для редкостей Brainrot
 local RARITY_COLORS = {
@@ -494,17 +495,17 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- === Speed Hack (обычная скорость) ===
+-- === Speed Hack (обычная скорость, фиксированная) ===
 local function updateSpeed()
     if Speed_Enabled and player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = WalkSpeed_Value
+            humanoid.WalkSpeed = 25 -- Фиксированная скорость
             
             if humanoid.MoveDirection.Magnitude > 0 then
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                 if rootPart then
-                    rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * (WalkSpeed_Value/100)
+                    rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * 0.2
                 end
             end
         end
@@ -516,14 +517,11 @@ local function updateSpeed()
     end
 end
 
--- === Speed+ (работает только с катушкой скорости) ===
+-- === Speed+ (работает только с катушкой скорости, но сохраняет эффект) ===
 local function hasSpeedCoil()
     if not player.Character then return false end
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return false end
     
     -- Проверяем инвентарь на наличие катушки скорости
-    -- (Замените "SpeedCoil" на реальное название предмета в игре)
     for _, item in pairs(player.Backpack:GetChildren()) do
         if item.Name == "SpeedCoil" then
             return true
@@ -544,23 +542,30 @@ local function updateSpeedPlus()
     if SpeedPlus_Enabled and player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
+            -- Если у нас есть катушка - активируем буст и запоминаем оригинальную скорость
             if hasSpeedCoil() then
-                humanoid.WalkSpeed = 25.6 -- 1.6x от стандартной скорости
+                HasSpeedCoilBuff = true
+                OriginalWalkSpeed = humanoid.WalkSpeed
+                humanoid.WalkSpeed = 35 -- Увеличенная скорость с катушкой
                 
                 if humanoid.MoveDirection.Magnitude > 0 then
                     local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                     if rootPart then
-                        rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * 0.25
+                        rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * 0.3
                     end
                 end
+            -- Если буст уже был активирован, но катушки нет - сохраняем скорость
+            elseif HasSpeedCoilBuff then
+                humanoid.WalkSpeed = 35
             else
-                humanoid.WalkSpeed = 16
+                humanoid.WalkSpeed = OriginalWalkSpeed
             end
         end
     elseif player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.WalkSpeed ~= 16 then
-            humanoid.WalkSpeed = 16
+        if humanoid then
+            humanoid.WalkSpeed = OriginalWalkSpeed
+            HasSpeedCoilBuff = false
         end
     end
 end
@@ -605,13 +610,18 @@ local function createToggleButton(name, positionX, positionY, callback)
     return button
 end
 
---====== Кнопки ======
+-- Создаем кнопки
 createToggleButton("ESP", 0.05, 85, function()
     ESP_Enabled = not ESP_Enabled
     return ESP_Enabled
 end)
 
-createToggleButton("Hitbox", 0.55, 85, function()
+createToggleButton("Tracers", 0.55, 85, function()
+    Tracer_Enabled = not Tracer_Enabled
+    return Tracer_Enabled
+end)
+
+createToggleButton("Hitbox Expand", 0.05, 85 + btnSpacingY, function()
     Hitbox_Enabled = not Hitbox_Enabled
     if Hitbox_Enabled then
         expandHitboxes()
@@ -621,32 +631,25 @@ createToggleButton("Hitbox", 0.55, 85, function()
     return Hitbox_Enabled
 end)
 
-createToggleButton("Wallhack", 0.05, 85 + btnSpacingY, function()
-    Wallhack_Enabled = not Wallhack_Enabled
-    setWallhack(Wallhack_Enabled)
-    return Wallhack_Enabled
-end)
-
-createToggleButton("Tracer", 0.55, 85 + btnSpacingY, function()
-    Tracer_Enabled = not Tracer_Enabled
-    return Tracer_Enabled
-end)
-
-createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
+createToggleButton("Infinity Jump", 0.55, 85 + btnSpacingY, function()
     InfinityJump_Enabled = not InfinityJump_Enabled
     return InfinityJump_Enabled
 end)
 
--- Кнопка Speed (обычная)
-createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
+createToggleButton("Speed", 0.05, 85 + btnSpacingY*2, function()
     Speed_Enabled = not Speed_Enabled
     return Speed_Enabled
 end)
 
--- Кнопка Speed+ (с катушкой)
-createToggleButton("Speed+", 0.05, 85 + btnSpacingY*3, function()
+createToggleButton("Speed+", 0.55, 85 + btnSpacingY*2, function()
     SpeedPlus_Enabled = not SpeedPlus_Enabled
     return SpeedPlus_Enabled
+end)
+
+createToggleButton("Wallhack", 0.05, 85 + btnSpacingY*3, function()
+    Wallhack_Enabled = not Wallhack_Enabled
+    setWallhack(Wallhack_Enabled)
+    return Wallhack_Enabled
 end)
 
 createToggleButton("Night Vision", 0.55, 85 + btnSpacingY*3, function()
@@ -665,165 +668,7 @@ createToggleButton("Anti Knockback", 0.55, 85 + btnSpacingY*4, function()
     return AntiKnockback_Enabled
 end)
 
--- === Слайдер скорости (для обычной Speed) ===
-local speedSlider = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(btnWidth, 0, 0, 20),
-    Position = UDim2.new(0.55, 0, 0.55, 0),
-    BackgroundColor3 = Color3.fromRGB(60,60,60),
-    Visible = false,
-    ZIndex = 20,
-    Active = true,
-})
-new("UICorner", {Parent = speedSlider, CornerRadius = UDim.new(0,6)})
-
-local speedSliderFill = new("Frame", {
-    Parent = speedSlider,
-    Size = UDim2.new(0.5, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(255,255,255),
-    BackgroundTransparency = 0.7,
-    ZIndex = 21,
-})
-new("UICorner", {Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
-
-local speedValueLabel = new("TextLabel", {
-    Parent = speedSlider,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Speed: "..WalkSpeed_Value,
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    ZIndex = 22,
-})
-
-local function updateSlider(input)
-    local mouse = UserInputService:GetMouseLocation()
-    local sliderPos = speedSlider.AbsolutePosition
-    local sliderSize = speedSlider.AbsoluteSize
-    local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X)
-    local percent = relativeX / sliderSize.X
-    
-    WalkSpeed_Value = math.floor(16 + (100 - 16) * percent)
-    speedValueLabel.Text = "Speed: "..WalkSpeed_Value
-    speedSliderFill.Size = UDim2.new(percent, 0, 1, 0)
-end
-
-speedSlider.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        updateSlider(input)
-        
-        local connection
-        connection = UserInputService.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                updateSlider(input)
-            end
-        end)
-        
-        local function disconnect()
-            connection:Disconnect()
-        end
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                disconnect()
-            end
-        end)
-    end
-end)
-
--- Показываем слайдер при активации Speed
-local speedButton
-speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
-    Speed_Enabled = not Speed_Enabled
-    speedSlider.Visible = Speed_Enabled
-    return Speed_Enabled
-end)
-
--- === Player List ===
-local playerListFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 150, 0, 180),
-    Position = UDim2.new(1, -160, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.4,
-    ZIndex = 10,
-})
-new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
-
-local titleLabel = new("TextLabel", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "Players",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 11,
-})
-
-local playerListScrolling = new("ScrollingFrame", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, -10, 1, -30),
-    Position = UDim2.new(0, 5, 0, 25),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    ZIndex = 11,
-})
-
-local playerListLayout = new("UIListLayout", {
-    Parent = playerListScrolling,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Padding = UDim.new(0, 2),
-})
-
-local function updatePlayerList()
-    for _, child in ipairs(playerListScrolling:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-    
-    local totalHeight = 0
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and 
-           player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            local playerEntry = new("TextLabel", {
-                Parent = playerListScrolling,
-                Size = UDim2.new(1, 0, 0, 16),
-                BackgroundTransparency = 1,
-                Text = plr.Name .. string.format(" [%.0f]", dist),
-                Font = Enum.Font.SourceSans,
-                TextSize = 12,
-                TextColor3 = Color3.fromRGB(255,255,255),
-                TextXAlignment = Enum.TextXAlignment.Center,
-                ZIndex = 12,
-            })
-            totalHeight = totalHeight + 18
-        end
-    end
-    
-    playerListScrolling.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-end
-
--- === Логика входа ===
-local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
-
-loginButton.MouseButton1Click:Connect(function()
-    if passwordBox.Text == CORRECT_PASSWORD then
-        floatBtn.Visible = true
-        loginFrame.Visible = false
-        loginError.Text = ""
-        -- Инициализируем ESP для Brainrots после входа
-        findBrainrots()
-    else
-        loginError.Text = "Неверный пароль!"
-    end
-end)
-
+-- === Логика интерфейса ===
 btn.MouseButton1Click:Connect(function()
     window.Visible = not window.Visible
 end)
@@ -832,33 +677,26 @@ btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
 end)
 
--- Инициализация ESP для игроков
-for _,plr in ipairs(Players:GetPlayers()) do
+-- Инициализация ESP для существующих игроков
+for _, plr in pairs(Players:GetPlayers()) do
     createPlayerESP(plr)
 end
 
-Players.PlayerAdded:Connect(function(plr)
-    createPlayerESP(plr)
-    plr.CharacterAdded:Connect(function()
-        if Hitbox_Enabled then
-            task.wait(1)
-            expandHitboxes()
-        end
-        if Wallhack_Enabled then
-            task.wait(1)
-            setWallhack(true)
-        end
-    end)
-end)
+Players.PlayerAdded:Connect(createPlayerESP)
 
-Players.PlayerRemoving:Connect(function(plr)
-    if ESP_Connections[plr] then
-        ESP_Connections[plr]:Disconnect()
-        ESP_Connections[plr] = nil
+-- Инициализация Brainrot ESP
+findBrainrots()
+
+-- Логика входа
+loginButton.MouseButton1Click:Connect(function()
+    local key = passwordBox.Text
+    if key == "ваш_ключ" then -- Замените на реальный ключ
+        loginFrame.Visible = false
+        floatBtn.Visible = true
+        watermark.Visible = true
+    else
+        loginError.Text = "Неверный ключ!"
+        task.wait(2)
+        loginError.Text = ""
     end
-end)
-
--- Обновление списка игроков
-RunService.Heartbeat:Connect(function()
-    updatePlayerList()
 end)

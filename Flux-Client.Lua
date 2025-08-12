@@ -31,6 +31,7 @@ local watermark = new("Frame", {
     Position = UDim2.new(0, 10, 0, 10),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.3,
+    ZIndex = 10,
 })
 new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
 
@@ -44,6 +45,7 @@ new("TextLabel", {
     TextColor3 = Color3.fromRGB(255,255,255),
     TextXAlignment = Enum.TextXAlignment.Center,
     TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 11,
 })
 
 -- === Окно логина ===
@@ -68,6 +70,7 @@ new("TextLabel", {
     TextSize = 18,
     TextColor3 = Color3.fromRGB(255,255,255),
     TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 21,
 })
 
 local passwordBox = new("TextBox", {
@@ -82,6 +85,7 @@ local passwordBox = new("TextBox", {
     BackgroundColor3 = Color3.fromRGB(40,40,40),
     BackgroundTransparency = 0.1,
     ClearTextOnFocus = false,
+    ZIndex = 21,
 })
 new("UICorner", {Parent = passwordBox, CornerRadius = UDim.new(0,6)})
 
@@ -94,6 +98,7 @@ local loginButton = new("TextButton", {
     Font = Enum.Font.SourceSans,
     TextSize = 16,
     TextColor3 = Color3.fromRGB(255,255,255),
+    ZIndex = 21,
 })
 new("UICorner", {Parent = loginButton, CornerRadius = UDim.new(0,6)})
 
@@ -107,6 +112,7 @@ local loginError = new("TextLabel", {
     TextSize = 14,
     TextColor3 = Color3.fromRGB(255,0,0),
     TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 21,
 })
 
 -- === Главное меню ===
@@ -117,7 +123,7 @@ local floatBtn = new("Frame", {
     Position = UDim2.new(0.02, 0, 0.5, -30),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.25,
-    ZIndex = 10,
+    ZIndex = 15,
     Visible = false,
 })
 new("UICorner", {Parent = floatBtn, CornerRadius = UDim.new(0,12)})
@@ -131,7 +137,7 @@ local btn = new("TextButton", {
     TextSize = 28,
     TextColor3 = Color3.fromRGB(255,255,255),
     AutoButtonColor = false,
-    ZIndex = 11,
+    ZIndex = 16,
 })
 
 local window = new("Frame", {
@@ -142,7 +148,7 @@ local window = new("Frame", {
     Visible = false,
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.5,
-    ZIndex = 9,
+    ZIndex = 14,
 })
 new("UICorner", {Parent = window, CornerRadius = UDim.new(0,10)})
 new("UIStroke", {Parent = window, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
@@ -156,7 +162,7 @@ local btnClose = new("TextButton", {
     Font = Enum.Font.SourceSansBold,
     TextSize = 18,
     TextColor3 = Color3.fromRGB(255,255,255),
-    ZIndex = 12,
+    ZIndex = 17,
 })
 
 local searchBox = new("TextBox", {
@@ -170,6 +176,7 @@ local searchBox = new("TextBox", {
     TextColor3 = Color3.fromRGB(255,255,255),
     BackgroundColor3 = Color3.fromRGB(40,40,40),
     BackgroundTransparency = 0.1,
+    ZIndex = 15,
 })
 new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
@@ -183,7 +190,7 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
-local WalkSpeed_Value = 40
+local WalkSpeed_Value = 16
 local ESP_Connections = {}
 local OriginalSizes = {}
 
@@ -368,7 +375,16 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- === Speed Hack ===
-local speedCleanup = function() end
+local speedConnection
+local function updateSpeed()
+    if Speed_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = WalkSpeed_Value
+        end
+    end
+end
+
 RunService.Heartbeat:Connect(function()
     if Speed_Enabled and player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -410,6 +426,7 @@ local function createToggleButton(name, positionX, positionY, callback)
         Font = Enum.Font.SourceSans,
         TextSize = 16,
         TextColor3 = Color3.fromRGB(255,255,255),
+        ZIndex = 15,
     })
     new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
     button.MouseButton1Click:Connect(function()
@@ -464,6 +481,8 @@ local speedSlider = new("Frame", {
     Position = UDim2.new(0.55, 0, 0.55, 0),
     BackgroundColor3 = Color3.fromRGB(60,60,60),
     Visible = false,
+    ZIndex = 20,
+    Active = true,
 })
 new("UICorner", {Parent = speedSlider, CornerRadius = UDim.new(0,6)})
 
@@ -472,6 +491,7 @@ local speedSliderFill = new("Frame", {
     Size = UDim2.new(0.5, 0, 1, 0),
     BackgroundColor3 = Color3.fromRGB(255,255,255),
     BackgroundTransparency = 0.7,
+    ZIndex = 21,
 })
 new("UICorner", {Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
 
@@ -483,21 +503,31 @@ local speedValueLabel = new("TextLabel", {
     Font = Enum.Font.SourceSans,
     TextSize = 14,
     TextColor3 = Color3.fromRGB(255,255,255),
+    ZIndex = 22,
 })
+
+local function updateSlider(input)
+    local mouse = UserInputService:GetMouseLocation()
+    local sliderPos = speedSlider.AbsolutePosition
+    local sliderSize = speedSlider.AbsoluteSize
+    local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X)
+    local percent = relativeX / sliderSize.X
+    
+    WalkSpeed_Value = math.floor(16 + (100 - 16) * percent)
+    speedValueLabel.Text = "Speed: "..WalkSpeed_Value
+    speedSliderFill.Size = UDim2.new(percent, 0, 1, 0)
+    updateSpeed()
+end
 
 speedSlider.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        updateSlider(input)
+        
         local connection
-        connection = RunService.Heartbeat:Connect(function()
-            local mouse = UserInputService:GetMouseLocation()
-            local sliderPos = speedSlider.AbsolutePosition
-            local sliderSize = speedSlider.AbsoluteSize
-            local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X)
-            local percent = relativeX / sliderSize.X
-            
-            WalkSpeed_Value = math.floor(16 + (100 - 16) * percent)
-            speedValueLabel.Text = "Speed: "..WalkSpeed_Value
-            speedSliderFill.Size = UDim2.new(percent, 0, 1, 0)
+        connection = UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                updateSlider(input)
+            end
         end)
         
         local function disconnect()
@@ -516,6 +546,9 @@ end)
 local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
     Speed_Enabled = not Speed_Enabled
     speedSlider.Visible = Speed_Enabled
+    if Speed_Enabled then
+        updateSpeed()
+    end
     return Speed_Enabled
 end)
 
@@ -542,6 +575,7 @@ local playerListFrame = new("Frame", {
     Position = UDim2.new(1, -160, 0, 10),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.4,
+    ZIndex = 10,
 })
 new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
 
@@ -554,6 +588,7 @@ local titleLabel = new("TextLabel", {
     TextSize = 16,
     TextColor3 = Color3.fromRGB(255,255,255),
     TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 11,
 })
 
 local playerListScrolling = new("ScrollingFrame", {
@@ -563,6 +598,7 @@ local playerListScrolling = new("ScrollingFrame", {
     BackgroundTransparency = 1,
     ScrollBarThickness = 4,
     CanvasSize = UDim2.new(0, 0, 0, 0),
+    ZIndex = 11,
 })
 
 local playerListLayout = new("UIListLayout", {
@@ -592,6 +628,7 @@ local function updatePlayerList()
                 TextSize = 12,
                 TextColor3 = Color3.fromRGB(255,255,255),
                 TextXAlignment = Enum.TextXAlignment.Center,
+                ZIndex = 12,
             })
             totalHeight = totalHeight + 18
         end
@@ -606,7 +643,6 @@ end)
 
 -- === Логика входа ===
 local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
-
 loginButton.MouseButton1Click:Connect(function()
     if passwordBox.Text == CORRECT_PASSWORD then
         floatBtn.Visible = true

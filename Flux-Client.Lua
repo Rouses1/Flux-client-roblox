@@ -16,12 +16,14 @@ local function new(className, props)
     return obj
 end
 
+-- === Главное GUI ===
 local screenGui = new("ScreenGui", {
     Name = "FluxClientGUI",
     ResetOnSpawn = false,
     Parent = playerGui,
 })
 
+-- === Watermark ===
 local watermark = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 160, 0, 30),
@@ -43,6 +45,7 @@ new("TextLabel", {
     TextYAlignment = Enum.TextYAlignment.Center,
 })
 
+-- === Окно логина ===
 local loginFrame = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 300, 0, 160),
@@ -105,6 +108,7 @@ local loginError = new("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
+-- === Главное меню ===
 local floatBtn = new("Frame", {
     Name = "FloatButton",
     Parent = screenGui,
@@ -168,17 +172,18 @@ local searchBox = new("TextBox", {
 })
 new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
+-- === Переменные функций ===
 local ESP_Enabled = false
 local Tracer_Enabled = false
-local Aimbot_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
 local Speed_Enabled = false
+local Wallhack_Enabled = false
 local WalkSpeed_Value = 40
-
 local ESP_Connections = {}
 local OriginalSizes = {}
 
+-- === ESP ===
 local function createTracer()
     local tracer = Drawing.new("Line")
     tracer.Color = Color3.new(1,1,1)
@@ -201,51 +206,51 @@ local function createESP(plr)
     local box = createBox()
     local tracer = createTracer()
 
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        local visible = false
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local head = plr.Character:FindFirstChild("Head")
-            local pos, vis = camera:WorldToViewportPoint(hrp.Position)
+    local conn      
+    conn = RunService.RenderStepped:Connect(function()      
+        local visible = false      
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then      
+            local hrp = plr.Character.HumanoidRootPart      
+            local head = plr.Character:FindFirstChild("Head")      
+            local pos, vis = camera:WorldToViewportPoint(hrp.Position)      
 
-            if vis then
-                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-                local height = footPos.Y - headPos.Y
-                local width = height / 2
+            if vis then      
+                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))      
+                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))      
+                local height = footPos.Y - headPos.Y      
+                local width = height / 2      
 
-                if ESP_Enabled then
-                    box.Size = Vector2.new(width, height)
-                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
-                    box.Visible = true
-                else
-                    box.Visible = false
-                end
+                if ESP_Enabled then      
+                    box.Size = Vector2.new(width, height)      
+                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)      
+                    box.Visible = true      
+                else      
+                    box.Visible = false      
+                end      
 
-                if Tracer_Enabled then
-                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                    tracer.To = Vector2.new(pos.X, pos.Y)
-                    tracer.Visible = true
-                else
-                    tracer.Visible = false
-                end
+                if Tracer_Enabled then      
+                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)      
+                    tracer.To = Vector2.new(pos.X, pos.Y)      
+                    tracer.Visible = true      
+                else      
+                    tracer.Visible = false      
+                end      
 
-                visible = true
-            end
-        end
+                visible = true      
+            end      
+        end      
 
-        if not visible then
-            box.Visible = false
-            tracer.Visible = false
-        end
-    end)
+        if not visible then      
+            box.Visible = false      
+            tracer.Visible = false      
+        end      
+    end)      
 
-    plr.AncestryChanged:Connect(function()
-        box:Remove()
-        tracer:Remove()
-        conn:Disconnect()
-    end)
+    plr.AncestryChanged:Connect(function()      
+        box:Remove()      
+        tracer:Remove()      
+        conn:Disconnect()      
+    end)      
 
     ESP_Connections[plr] = conn
 end
@@ -254,26 +259,7 @@ for _,plr in ipairs(Players:GetPlayers()) do
     createESP(plr)
 end
 
-local function getClosestTarget()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-    local centerScreen = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-            local headPos, onScreen = camera:WorldToViewportPoint(plr.Character.Head.Position)
-            if onScreen then
-                local head2d = Vector2.new(headPos.X, headPos.Y)
-                local dist = (centerScreen - head2d).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closestPlayer = plr
-                end
-            end
-        end
-    end
-    return closestPlayer
-end
-
+-- === Hitbox Expand ===
 local function expandHitboxes()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -313,15 +299,33 @@ local function resetHitboxes()
     OriginalSizes = {}
 end
 
+-- === Wallhack ===
+local function setWallhack(state)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+            if state then
+                obj.LocalTransparencyModifier = 0.5
+                obj.CanCollide = false
+            else
+                obj.LocalTransparencyModifier = 0
+                obj.CanCollide = true
+            end
+        end
+    end
+end
+
+-- === Infinity Jump ===
 UserInputService.JumpRequest:Connect(function()
     if InfinityJump_Enabled then
         local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:ChangeState("Jumping")
+            humanoid:Move(Vector3.new(0,50,0))
         end
     end
 end)
 
+-- === Speed ===
 RunService.RenderStepped:Connect(function()
     if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -337,9 +341,10 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- === UI Кнопки ===
 local btnWidth = 0.4
 local btnHeight = 28
-local btnSpacingY = 40
+local btnSpacingY = 30
 
 local function createToggleButton(name, positionX, positionY, callback)
     local button = new("TextButton", {
@@ -382,92 +387,102 @@ createToggleButton("Hitbox", 0.05, 85 + btnSpacingY, function()
     return Hitbox_Enabled
 end)
 
-createToggleButton("Tracer", 0.55, 85, function()
+createToggleButton("Wallhack", 0.55, 85 + btnSpacingY, function()
+    Wallhack_Enabled = not Wallhack_Enabled
+    setWallhack(Wallhack_Enabled)
+    return Wallhack_Enabled
+end)
+
+createToggleButton("Tracer", 0.05, 85 + btnSpacingY*2, function()
     Tracer_Enabled = not Tracer_Enabled
     return Tracer_Enabled
 end)
 
-createToggleButton("Aimbot [beta]", 0.55, 85 + btnSpacingY, function()
-    Aimbot_Enabled = not Aimbot_Enabled
-    return Aimbot_Enabled
-end)
-
-createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
+createToggleButton("Infinity Jump", 0.55, 85 + btnSpacingY*2, function()
     InfinityJump_Enabled = not InfinityJump_Enabled
     return InfinityJump_Enabled
 end)
 
-createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
+createToggleButton("Speed", 0.05, 85 + btnSpacingY*3, function()
     Speed_Enabled = not Speed_Enabled
     return Speed_Enabled
 end)
 
-local playerListEnabled = false
-
+-- === Player List (квадратная форма) ===
 local playerListFrame = new("Frame", {
     Parent = screenGui,
-    Size = UDim2.new(0, 220 / 2.5, 0, 300 / 2.5),
-    Position = UDim2.new(1, - (230 / 2.5), 0, 10),
+    Size = UDim2.new(0, 200, 0, 240),
+    Position = UDim2.new(1, -210, 0, 10),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.4,
-    Visible = false,
-    ZIndex = 20,
 })
-new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,8)})
+new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
 
-new("TextLabel", {
+local titleLabel = new("TextLabel", {
     Parent = playerListFrame,
-    Size = UDim2.new(1, 0, 0, 30 / 2.5),
+    Size = UDim2.new(1, 0, 0, 20),
     BackgroundTransparency = 1,
     Text = "Player list",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 18 / 2.5,
+    Font = Enum.Font.SourceSansBold,
+    TextSize = 16,
     TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
 })
 
-local playerListScrollingFrame = new("ScrollingFrame", {
+local playerListContent = new("TextLabel", {
     Parent = playerListFrame,
-    Size = UDim2.new(1, -10, 1, -40) / 2.5,
-    Position = UDim2.new(0, 5 / 2.5, 0, 35 / 2.5),
+    Size = UDim2.new(1, -10, 1, -30),
+    Position = UDim2.new(0, 5, 0, 25),
     BackgroundTransparency = 1,
-    ScrollBarThickness = 6,
-    CanvasSize = UDim2.new(0, 0, 1, 0),
-})
-new("UIListLayout", {
-    Parent = playerListScrollingFrame,
-    Padding = UDim.new(0, 4 / 2.5),
-    SortOrder = Enum.SortOrder.LayoutOrder,
+    Text = "",
+    Font = Enum.Font.SourceSans,
+    TextSize = 14,
+    TextColor3 = Color3.fromRGB(255,255,255),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
 })
 
-local function updatePlayerList()
-    for _, child in pairs(playerListScrollingFrame:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
+RunService.RenderStepped:Connect(function()
+    local text = ""
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            text = text .. plr.Name .. string.format(" [%.0f]\n", dist)
         end
     end
+    playerListContent.Text = text
+end)
 
-    local totalHeight = 0
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local plrLabel = new("TextLabel", {
-                    Parent = playerListScrollingFrame,
-                    Size = UDim2.new(1, 0, 0, 20 / 2.5),
-                    BackgroundTransparency = 1,
-                    Text = plr.Name,
-                    Font = Enum.Font.SourceSans,
-                    TextSize = 14 / 2.5,
-                    TextColor3 = Color3.fromRGB(255,255,255),
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    LayoutOrder = totalHeight + 1,
-                })
-                totalHeight
+-- === Логика входа ===
+local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
 
-totalHeight = totalHeight + (20 / 2.5)
-            end
-        end
+loginButton.MouseButton1Click:Connect(function()
+    if passwordBox.Text == CORRECT_PASSWORD then
+        floatBtn.Visible = true
+        loginFrame.Visible = false
+        loginError.Text = ""
+    else
+        loginError.Text = "Неверный пароль!"
     end
+end)
 
-    playerListScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-end
+btn.MouseButton1Click:Connect(function()
+    window.Visible = not window.Visible
+end)
+
+btnClose.MouseButton1Click:Connect(function()
+    window.Visible = false
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    createESP(plr)
+    plr.CharacterAdded:Connect(function()
+        if Hitbox_Enabled then
+            task.wait(1)
+            expandHitboxes()
+        end
+        if Wallhack_Enabled then
+            task.wait(1)
+            setWallhack(true)
+        end
+    end)
+end)

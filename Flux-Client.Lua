@@ -185,9 +185,6 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
-local Spider_Enabled = false
-local TargetLock_Enabled = false
-local TargetLock_Target = nil
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
@@ -198,14 +195,10 @@ local function setNightVision(state)
         Lighting.Ambient = Color3.new(1, 1, 1)
         Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
         Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-        Lighting.Brightness = 1
-        Lighting.ClockTime = 14
     else
         Lighting.Ambient = Color3.new(0, 0, 0)
         Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
         Lighting.ColorShift_Top = Color3.new(0, 0, 0)
-        Lighting.Brightness = 1
-        Lighting.ClockTime = 14
     end
 end
 
@@ -226,84 +219,6 @@ local function antiKnockback()
         if humanoid then
             humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        end
-    end
-end
-
--- Spider (прилипание к стенам)
-local function spider()
-    if Spider_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        
-        if humanoid and hrp then
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterDescendantsInstances = {player.Character}
-            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-            
-            local rayOrigin = hrp.Position
-            local rayDirection = hrp.CFrame.LookVector * -3 -- Проверяем стену перед игроком
-            local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-            
-            if raycastResult then
-                humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
-            end
-        end
-    end
-end
-
--- Target Lock (автоматическое наведение на игрока)
-local function targetLock()
-    if TargetLock_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        
-        if humanoid and hrp then
-            -- Если цель не установлена или игрок вышел из игры, находим новую цель
-            if not TargetLock_Target or not TargetLock_Target.Character or not TargetLock_Target.Character:FindFirstChild("HumanoidRootPart") then
-                local closestPlayer = nil
-                local closestDistance = math.huge
-                
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        local distance = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = plr
-                        end
-                    end
-                end
-                
-                TargetLock_Target = closestPlayer
-            end
-            
-            -- Если есть цель, поворачиваемся к ней
-            if TargetLock_Target and TargetLock_Target.Character and TargetLock_Target.Character:FindFirstChild("HumanoidRootPart") then
-                local targetHrp = TargetLock_Target.Character.HumanoidRootPart
-                local direction = (targetHrp.Position - hrp.Position).Unit
-                
-                -- Плавное наведение
-                local currentCFrame = hrp.CFrame
-                local targetCFrame = CFrame.new(hrp.Position, hrp.Position + direction)
-                hrp.CFrame = currentCFrame:Lerp(targetCFrame, 0.2)
-            end
-        end
-    end
-end
-
--- Улучшенный Infinity Jump (с защитой от античита)
-local function infinityJump()
-    if InfinityJump_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            -- Проверяем, что игрок действительно может прыгать
-            if humanoid.FloorMaterial ~= Enum.Material.Air and humanoid:GetState() ~= Enum.HumanoidStateType.Jumping then
-                -- Используем JumpRequest вместо прямого изменения состояния
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                
-                -- Добавляем небольшую задержку перед следующим прыжком
-                task.wait(0.1)
-            end
         end
     end
 end
@@ -375,6 +290,7 @@ local function createESP(plr)
         box:Remove()
         tracer:Remove()
         conn:Disconnect()
+        ESP_Connections[plr] = nil
     end)
 
     ESP_Connections[plr] = conn
@@ -439,6 +355,17 @@ local function setWallhack(state)
     end
 end
 
+-- Infinity Jump
+UserInputService.JumpRequest:Connect(function()
+    if InfinityJump_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            task.wait(0.1)
+        end
+    end
+end)
+
 -- Speed Hack
 RunService.Heartbeat:Connect(function()
     if Speed_Enabled and player.Character then
@@ -453,12 +380,9 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Run other checks
+    -- Run No Fall and Anti Knockback checks
     noFall()
     antiKnockback()
-    spider()
-    targetLock()
-    infinityJump()
 end)
 
 -- UI Кнопки
@@ -524,21 +448,6 @@ createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
     return InfinityJump_Enabled
 end)
 
--- Spider Button
-createToggleButton("Spider", 0.55, 85 + btnSpacingY*2, function()
-    Spider_Enabled = not Spider_Enabled
-    return Spider_Enabled
-end)
-
--- Target Lock Button
-createToggleButton("Target Lock", 0.05, 85 + btnSpacingY*3, function()
-    TargetLock_Enabled = not TargetLock_Enabled
-    if not TargetLock_Enabled then
-        TargetLock_Target = nil
-    end
-    return TargetLock_Enabled
-end)
-
 -- Слайдер скорости
 local speedSlider = new("Frame", {
     Parent = window,
@@ -595,24 +504,24 @@ speedSlider.InputBegan:Connect(function(input)
 end)
 
 -- Кнопка Speed
-local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*3, function()
+local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
     Speed_Enabled = not Speed_Enabled
     speedSlider.Visible = Speed_Enabled
     return Speed_Enabled
 end)
 
-createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*4, function()
+createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*3, function()
     NightVision_Enabled = not NightVision_Enabled
     setNightVision(NightVision_Enabled)
     return NightVision_Enabled
 end)
 
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*4, function()
+createToggleButton("No Fall", 0.55, 85 + btnSpacingY*3, function()
     NoFall_Enabled = not NoFall_Enabled
     return NoFall_Enabled
 end)
 
-createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*5, function()
+createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*4, function()
     AntiKnockback_Enabled = not AntiKnockback_Enabled
     return AntiKnockback_Enabled
 end)
@@ -725,8 +634,5 @@ Players.PlayerRemoving:Connect(function(plr)
     if ESP_Connections[plr] then
         ESP_Connections[plr]:Disconnect()
         ESP_Connections[plr] = nil
-    end
-    if TargetLock_Target == plr then
-        TargetLock_Target = nil
     end
 end)

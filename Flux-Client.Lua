@@ -2,11 +2,15 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local GuiService = game:GetService("GuiService")
+local HttpService = game:GetService("HttpService")
 
 -- Ожидаем загрузку игрока
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
+local camera = Workspace.CurrentCamera
+local mouse = player:GetMouse()
 
 -- Цветовая схема
 local MAIN_COLOR = Color3.fromRGB(0, 0, 0)
@@ -27,7 +31,7 @@ end
 
 -- Создаем основное GUI
 local screenGui = new("ScreenGui", {
-    Name = "FluxClientGUI",
+    Name = "FluxClientGUI_"..HttpService:GenerateGUID(false),
     ResetOnSpawn = false,
     Parent = playerGui,
 })
@@ -183,6 +187,7 @@ new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
 -- Переменные функций
 local ESP_Enabled = false
+local ESP_Objects_Enabled = false
 local Tracer_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
@@ -193,10 +198,24 @@ local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
 local Spider_Enabled = false
 local TriggerBot_Enabled = false
+local Aimbot_Enabled = false
+local SilentAim_Enabled = false
 local WalkSpeed_Value = 40
 local JumpPower_Value = 50
 local ESP_Connections = {}
+local ESP_Objects_Connections = {}
 local OriginalSizes = {}
+
+-- Функции защиты от античита
+local function isPlayerAlive(plr)
+    if not plr.Character then return false end
+    local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+    return humanoid and humanoid.Health > 0
+end
+
+local function isCharacterValid(char)
+    return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head")
+end
 
 -- Night Vision
 local function setNightVision(state)
@@ -243,7 +262,7 @@ local function spider()
             
             local rayOrigin = player.Character.HumanoidRootPart.Position
             local rayDirection = Vector3.new(0, -5, 0)
-            local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
             
             if raycastResult then
                 humanoid.JumpPower = JumpPower_Value
@@ -255,111 +274,253 @@ end
 
 -- Trigger Bot
 local function triggerBot()
-    if TriggerBot_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if TriggerBot_Enabled and player.Character and isPlayerAlive(player) then
+        local closestPlayer, closestDistance = nil, math.huge
         
-        if humanoid and rootPart then
-            local closestPlayer = nil
-            local closestDistance = math.huge
-            
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                    local targetHumanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+                local targetRoot = plr.Character.HumanoidRootPart
+                local targetHead = plr.Character.Head
+                
+                -- Проверяем, находится ли игрок в поле зрения
+                local screenPoint = camera:WorldToViewportPoint(targetHead.Position)
+                if screenPoint.Z > 0 then -- Z > 0 значит перед камерой
+                    local mousePos = Vector2.new(mouse.X, mouse.Y)
+                    local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                    local distance = (mousePos - targetPos).Magnitude
                     
-                    if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
-                        local distance = (targetRoot.Position - rootPart.Position).Magnitude
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = plr
-                        end
+                    if distance < 50 and distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = plr
                     end
                 end
             end
-            
-            if closestPlayer and closestDistance < 50 then
-                mouse1click()
-            end
+        end
+        
+        if closestPlayer then
+            mouse1click()
         end
     end
 end
 
--- ESP
-local function createTracer()
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(1,1,1)
-    tracer.Thickness = 1
-    tracer.Transparency = 1
-    return tracer
+-- Aimbot
+local function aimAt(target)
+    if not target or not target:IsDescendantOf(Workspace) then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- Плавное наведение
+    local targetPosition = target.Position
+    local camera = Workspace.CurrentCamera
+    local lookAt = (targetPosition - camera.CFrame.Position).Unit
+    
+    -- Плавное изменение угла камеры
+    local current = camera.CFrame.LookVector
+    local smooth = 0.5 -- Коэффициент плавности (0-1)
+    local new = current:Lerp(lookAt, smooth)
+    
+    -- Устанавливаем новое направление камеры
+    camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + new)
 end
 
-local function createBox()
+-- Silent Aim (перенаправление пуль)
+local function silentAimHook()
+    if not SilentAim_Enabled or not player.Character then return end
+    
+    local closestPlayer, closestDistance = nil, math.huge
+    local myHead = player.Character:FindFirstChild("Head")
+    if not myHead then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+            local targetHead = plr.Character:FindFirstChild("Head")
+            if targetHead then
+                local distance = (targetHead.Position - myHead.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = plr
+                end
+            end
+        end
+    end
+    
+    if closestPlayer and closestPlayer.Character then
+        local targetHead = closestPlayer.Character:FindFirstChild("Head")
+        if targetHead then
+            -- Возвращаем позицию головы ближайшего игрока
+            return targetHead.Position
+        end
+    end
+    
+    -- Если никого нет, возвращаем исходную позицию
+    return nil
+end
+
+-- ESP для всех объектов
+local function createESPObject(obj)
+    if not obj:IsA("BasePart") then return end
+    
+    local box = Drawing.new("Square")
+    box.Color = Color3.new(1, 0, 0)
+    box.Thickness = 1
+    box.Transparency = 1
+    box.Filled = false
+    box.Visible = false
+    
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not obj or not obj.Parent then
+            box:Remove()
+            conn:Disconnect()
+            ESP_Objects_Connections[obj] = nil
+            return
+        end
+        
+        local pos, vis = camera:WorldToViewportPoint(obj.Position)
+        if vis and ESP_Objects_Enabled then
+            box.Size = Vector2.new(20, 20)
+            box.Position = Vector2.new(pos.X - 10, pos.Y - 10)
+            box.Visible = true
+        else
+            box.Visible = false
+        end
+    end)
+    
+    ESP_Objects_Connections[obj] = conn
+    
+    obj.AncestryChanged:Connect(function()
+        box:Remove()
+        conn:Disconnect()
+        ESP_Objects_Connections[obj] = nil
+    end)
+end
+
+-- ESP для игроков
+local function createESP(plr)
+    if plr == player then return end
+    
     local box = Drawing.new("Square")
     box.Color = Color3.new(1,1,1)
     box.Thickness = 1.5
     box.Transparency = 1
     box.Filled = false
-    return box
-end
-
-local function createESP(plr)
-    if plr == player then return end
-    local box = createBox()
-    local tracer = createTracer()
+    
+    local tracer = Drawing.new("Line")
+    tracer.Color = Color3.new(1,1,1)
+    tracer.Thickness = 1
+    tracer.Transparency = 1
+    
+    local healthBar = Drawing.new("Line")
+    healthBar.Color = Color3.new(0,1,0)
+    healthBar.Thickness = 2
+    healthBar.Transparency = 1
+    
+    local nameTag = Drawing.new("Text")
+    nameTag.Text = plr.Name
+    nameTag.Color = Color3.new(1,1,1)
+    nameTag.Size = 14
+    nameTag.Center = true
+    nameTag.Outline = true
+    nameTag.Transparency = 1
 
     local conn
     conn = RunService.RenderStepped:Connect(function()
-        local visible = false
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local head = plr.Character:FindFirstChild("Head")
+        if not plr or not plr.Parent or not plr.Character then
+            box:Remove()
+            tracer:Remove()
+            healthBar:Remove()
+            nameTag:Remove()
+            conn:Disconnect()
+            ESP_Connections[plr] = nil
+            return
+        end
+        
+        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+        local head = plr.Character:FindFirstChild("Head")
+        local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+        
+        if hrp and head and humanoid then
             local pos, vis = camera:WorldToViewportPoint(hrp.Position)
-
+            
             if vis then
                 local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
                 local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
                 local height = footPos.Y - headPos.Y
                 local width = height / 2
-
-                if ESP_Enabled then                  
-                    box.Size = Vector2.new(width, height)                  
-                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)                  
-                    box.Visible = true                  
-                else                  
-                    box.Visible = false                  
-                end                  
-
-                if Tracer_Enabled then                  
-                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)                  
-                    tracer.To = Vector2.new(pos.X, pos.Y)                  
-                    tracer.Visible = true                  
-                else                  
-                    tracer.Visible = false                  
-                end                  
-
-                visible = true                  
+                
+                if ESP_Enabled then
+                    -- Box
+                    box.Size = Vector2.new(width, height)
+                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
+                    box.Visible = true
+                    
+                    -- Tracer
+                    if Tracer_Enabled then
+                        tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(pos.X, pos.Y)
+                        tracer.Visible = true
+                    else
+                        tracer.Visible = false
+                    end
+                    
+                    -- Health bar
+                    local healthPercent = humanoid.Health / humanoid.MaxHealth
+                    local barHeight = height * healthPercent
+                    healthBar.From = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height - barHeight)
+                    healthBar.To = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height)
+                    healthBar.Visible = true
+                    
+                    -- Name tag
+                    nameTag.Position = Vector2.new(headPos.X, headPos.Y - 20)
+                    nameTag.Visible = true
+                else
+                    box.Visible = false
+                    tracer.Visible = false
+                    healthBar.Visible = false
+                    nameTag.Visible = false
+                end
+            else
+                box.Visible = false
+                tracer.Visible = false
+                healthBar.Visible = false
+                nameTag.Visible = false
             end
-        end
-
-        if not visible then
+        else
             box.Visible = false
             tracer.Visible = false
+            healthBar.Visible = false
+            nameTag.Visible = false
         end
     end)
-
+    
     plr.AncestryChanged:Connect(function()
         box:Remove()
         tracer:Remove()
+        healthBar:Remove()
+        nameTag:Remove()
         conn:Disconnect()
         ESP_Connections[plr] = nil
     end)
-
+    
     ESP_Connections[plr] = conn
 end
 
+-- Инициализация ESP для всех игроков
 for _,plr in ipairs(Players:GetPlayers()) do
     createESP(plr)
+end
+
+-- Инициализация ESP для всех объектов
+if ESP_Objects_Enabled then
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+            createESPObject(obj)
+        end
+    end
 end
 
 -- Hitbox Expand
@@ -404,7 +565,7 @@ end
 
 -- Wallhack
 local function setWallhack(state)
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
             if state then
                 obj.LocalTransparencyModifier = 0.5
@@ -430,15 +591,14 @@ end)
 
 -- Speed Hack
 RunService.Heartbeat:Connect(function()
-    if Speed_Enabled and player.Character then
+    if player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = WalkSpeed_Value
-        end
-    elseif player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.WalkSpeed ~= 16 then
-            humanoid.WalkSpeed = 16
+            if Speed_Enabled then
+                humanoid.WalkSpeed = WalkSpeed_Value
+            elseif humanoid.WalkSpeed ~= 16 then
+                humanoid.WalkSpeed = 16
+            end
         end
     end
     
@@ -447,6 +607,34 @@ RunService.Heartbeat:Connect(function()
     antiKnockback()
     spider()
     triggerBot()
+    
+    -- Aimbot
+    if Aimbot_Enabled and player.Character and isPlayerAlive(player) then
+        local closestPlayer, closestDistance = nil, math.huge
+        local myHead = player.Character:FindFirstChild("Head")
+        
+        if myHead then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+                    local targetHead = plr.Character:FindFirstChild("Head")
+                    if targetHead then
+                        local distance = (targetHead.Position - myHead.Position).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+            
+            if closestPlayer and closestPlayer.Character then
+                local targetHead = closestPlayer.Character:FindFirstChild("Head")
+                if targetHead then
+                    aimAt(targetHead)
+                end
+            end
+        end
+    end
 end)
 
 -- UI Кнопки
@@ -486,16 +674,42 @@ end
 -- Создаем кнопки в алфавитном порядке
 local currentY = 85
 
+-- Aimbot
+createToggleButton("Aimbot", 0.05, currentY, function()
+    Aimbot_Enabled = not Aimbot_Enabled
+    return Aimbot_Enabled
+end)
+
 -- Anti Knockback
-createToggleButton("Anti Knockback", 0.05, currentY, function()
+createToggleButton("Anti Knockback", 0.55, currentY, function()
     AntiKnockback_Enabled = not AntiKnockback_Enabled
     return AntiKnockback_Enabled
 end)
 
+currentY = currentY + btnSpacingY
+
 -- ESP
-createToggleButton("ESP", 0.55, currentY, function()
+createToggleButton("ESP", 0.05, currentY, function()
     ESP_Enabled = not ESP_Enabled
     return ESP_Enabled
+end)
+
+-- ESP Objects
+createToggleButton("ESP Objects", 0.55, currentY, function()
+    ESP_Objects_Enabled = not ESP_Objects_Enabled
+    if ESP_Objects_Enabled then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                createESPObject(obj)
+            end
+        end
+    else
+        for obj, conn in pairs(ESP_Objects_Connections) do
+            conn:Disconnect()
+            ESP_Objects_Connections[obj] = nil
+        end
+    end
+    return ESP_Objects_Enabled
 end)
 
 currentY = currentY + btnSpacingY
@@ -534,36 +748,42 @@ end)
 
 currentY = currentY + btnSpacingY
 
+-- Silent Aim
+createToggleButton("Silent Aim", 0.05, currentY, function()
+    SilentAim_Enabled = not SilentAim_Enabled
+    return SilentAim_Enabled
+end)
+
 -- Speed
-createToggleButton("Speed", 0.05, currentY, function()
+createToggleButton("Speed", 0.55, currentY, function()
     Speed_Enabled = not Speed_Enabled
     return Speed_Enabled
 end)
 
+currentY = currentY + btnSpacingY
+
 -- Spider
-createToggleButton("Spider", 0.55, currentY, function()
+createToggleButton("Spider", 0.05, currentY, function()
     Spider_Enabled = not Spider_Enabled
     return Spider_Enabled
 end)
 
-currentY = currentY + btnSpacingY
-
 -- Tracer
-createToggleButton("Tracer", 0.05, currentY, function()
+createToggleButton("Tracer", 0.55, currentY, function()
     Tracer_Enabled = not Tracer_Enabled
     return Tracer_Enabled
 end)
 
+currentY = currentY + btnSpacingY
+
 -- Trigger Bot
-createToggleButton("Trigger Bot", 0.55, currentY, function()
+createToggleButton("Trigger Bot", 0.05, currentY, function()
     TriggerBot_Enabled = not TriggerBot_Enabled
     return TriggerBot_Enabled
 end)
 
-currentY = currentY + btnSpacingY
-
 -- Wallhack
-createToggleButton("Wallhack", 0.05, currentY, function()
+createToggleButton("Wallhack", 0.55, currentY, function()
     Wallhack_Enabled = not Wallhack_Enabled
     setWallhack(Wallhack_Enabled)
     return Wallhack_Enabled
@@ -648,6 +868,31 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
+-- Hook для Silent Aim
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    
+    if SilentAim_Enabled and not checkcaller() then
+        if method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
+            local targetPos = silentAimHook()
+            if targetPos then
+                local args = {...}
+                local ray = args[1]
+                
+                if typeof(ray) == "Ray" then
+                    -- Меняем направление луча на голову ближайшего игрока
+                    local newRay = Ray.new(ray.Origin, (targetPos - ray.Origin).Unit * ray.Direction.Magnitude)
+                    args[1] = newRay
+                    return oldNamecall(self, unpack(args))
+                end
+            end
+        end
+    end
+    
+    return oldNamecall(self, ...)
+end)
+
 RunService.Heartbeat:Connect(function()
     updatePlayerList()
 end)
@@ -691,5 +936,11 @@ Players.PlayerRemoving:Connect(function(plr)
     if ESP_Connections[plr] then
         ESP_Connections[plr]:Disconnect()
         ESP_Connections[plr] = nil
+    end
+end)
+
+Workspace.DescendantAdded:Connect(function(obj)
+    if ESP_Objects_Enabled and obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+        createESPObject(obj)
     end
 end)

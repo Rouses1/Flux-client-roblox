@@ -8,6 +8,12 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local camera = workspace.CurrentCamera
 
+-- Цветовая схема
+local MAIN_COLOR = Color3.fromRGB(0, 0, 0)
+local MAIN_TRANSPARENCY = 0.5
+local BUTTON_COLOR = Color3.fromRGB(40, 40, 40)
+local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+
 -- Функция для создания объектов
 local function new(className, props)
     local obj = Instance.new(className)
@@ -31,7 +37,7 @@ local watermark = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 160, 0, 30),
     Position = UDim2.new(0, 10, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
+    BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = 0.3,
 })
 new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
@@ -43,7 +49,7 @@ new("TextLabel", {
     Text = "Flux Client",
     Font = Enum.Font.SourceSansSemibold,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
     TextXAlignment = Enum.TextXAlignment.Center,
     TextYAlignment = Enum.TextYAlignment.Center,
 })
@@ -53,12 +59,12 @@ local loginFrame = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 300, 0, 160),
     Position = UDim2.new(0.5, -150, 0.5, -80),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.5,
+    BackgroundColor3 = MAIN_COLOR,
+    BackgroundTransparency = MAIN_TRANSPARENCY,
     ZIndex = 20,
 })
 new("UICorner", {Parent = loginFrame, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = loginFrame, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
+new("UIStroke", {Parent = loginFrame, Color = MAIN_COLOR, Transparency = 0.6})
 
 new("TextLabel", {
     Parent = loginFrame,
@@ -68,7 +74,7 @@ new("TextLabel", {
     Text = "Flux Client",
     Font = Enum.Font.SourceSansSemibold,
     TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
@@ -80,8 +86,8 @@ local passwordBox = new("TextBox", {
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
+    TextColor3 = TEXT_COLOR,
+    BackgroundColor3 = BUTTON_COLOR,
     BackgroundTransparency = 0.1,
     ClearTextOnFocus = false,
 })
@@ -91,11 +97,11 @@ local loginButton = new("TextButton", {
     Parent = loginFrame,
     Size = UDim2.new(0.5, 0, 0, 28),
     Position = UDim2.new(0.25, 0, 0.7, 0),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
+    BackgroundColor3 = BUTTON_COLOR,
     Text = "Войти",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
 })
 new("UICorner", {Parent = loginButton, CornerRadius = UDim.new(0,6)})
 
@@ -117,7 +123,7 @@ local floatBtn = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 60, 0, 60),
     Position = UDim2.new(0.02, 0, 0.5, -30),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
+    BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = 0.25,
     ZIndex = 10,
     Visible = false,
@@ -131,7 +137,7 @@ local btn = new("TextButton", {
     Text = "≡",
     Font = Enum.Font.SourceSansBold,
     TextSize = 28,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
     AutoButtonColor = false,
     ZIndex = 11,
 })
@@ -142,12 +148,12 @@ local window = new("Frame", {
     Size = UDim2.new(0, 520, 0, 340),
     Position = UDim2.new(0.5, -260, 0.5, -170),
     Visible = false,
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.5,
+    BackgroundColor3 = MAIN_COLOR,
+    BackgroundTransparency = MAIN_TRANSPARENCY,
     ZIndex = 9,
 })
 new("UICorner", {Parent = window, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = window, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
+new("UIStroke", {Parent = window, Color = MAIN_COLOR, Transparency = 0.6})
 
 local btnClose = new("TextButton", {
     Parent = window,
@@ -157,7 +163,7 @@ local btnClose = new("TextButton", {
     Text = "×",
     Font = Enum.Font.SourceSansBold,
     TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
     ZIndex = 12,
 })
 
@@ -169,8 +175,8 @@ local searchBox = new("TextBox", {
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
+    TextColor3 = TEXT_COLOR,
+    BackgroundColor3 = BUTTON_COLOR,
     BackgroundTransparency = 0.1,
 })
 new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
@@ -185,7 +191,10 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
+local Spider_Enabled = false
+local TriggerBot_Enabled = false
 local WalkSpeed_Value = 40
+local JumpPower_Value = 50
 local ESP_Connections = {}
 local OriginalSizes = {}
 
@@ -219,6 +228,59 @@ local function antiKnockback()
         if humanoid then
             humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        end
+    end
+end
+
+-- Spider
+local function spider()
+    if Spider_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {player.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            
+            local rayOrigin = player.Character.HumanoidRootPart.Position
+            local rayDirection = Vector3.new(0, -5, 0)
+            local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            
+            if raycastResult then
+                humanoid.JumpPower = JumpPower_Value
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end
+
+-- Trigger Bot
+local function triggerBot()
+    if TriggerBot_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid and rootPart then
+            local closestPlayer = nil
+            local closestDistance = math.huge
+            
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character then
+                    local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                    local targetHumanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+                    
+                    if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
+                        local distance = (targetRoot.Position - rootPart.Position).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+            
+            if closestPlayer and closestDistance < 50 then
+                mouse1click()
+            end
         end
     end
 end
@@ -380,27 +442,31 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Run No Fall and Anti Knockback checks
+    -- Run other checks
     noFall()
     antiKnockback()
+    spider()
+    triggerBot()
 end)
 
 -- UI Кнопки
 local btnWidth = 0.4
 local btnHeight = 28
 local btnSpacingY = 30
+local buttons = {}
 
 local function createToggleButton(name, positionX, positionY, callback)
     local button = new("TextButton", {
         Parent = window,
         Size = UDim2.new(btnWidth, 0, 0, btnHeight),
         Position = UDim2.new(positionX, 0, 0, positionY),
-        BackgroundColor3 = Color3.fromRGB(40,40,40),
+        BackgroundColor3 = BUTTON_COLOR,
         BackgroundTransparency = 0,
         Text = name,
         Font = Enum.Font.SourceSans,
         TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
+        TextColor3 = TEXT_COLOR,
+        Name = name,
     })
     new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
     button.MouseButton1Click:Connect(function()
@@ -409,20 +475,33 @@ local function createToggleButton(name, positionX, positionY, callback)
             button.BackgroundColor3 = Color3.fromRGB(255,255,255)
             button.BackgroundTransparency = 0.7
         else
-            button.BackgroundColor3 = Color3.fromRGB(40,40,40)
+            button.BackgroundColor3 = BUTTON_COLOR
             button.BackgroundTransparency = 0
         end
     end)
+    table.insert(buttons, button)
     return button
 end
 
--- Кнопки
-createToggleButton("ESP", 0.05, 85, function()
+-- Создаем кнопки в алфавитном порядке
+local currentY = 85
+
+-- Anti Knockback
+createToggleButton("Anti Knockback", 0.05, currentY, function()
+    AntiKnockback_Enabled = not AntiKnockback_Enabled
+    return AntiKnockback_Enabled
+end)
+
+-- ESP
+createToggleButton("ESP", 0.55, currentY, function()
     ESP_Enabled = not ESP_Enabled
     return ESP_Enabled
 end)
 
-createToggleButton("Hitbox", 0.55, 85, function()
+currentY = currentY + btnSpacingY
+
+-- Hitbox
+createToggleButton("Hitbox", 0.05, currentY, function()
     Hitbox_Enabled = not Hitbox_Enabled
     if Hitbox_Enabled then
         expandHitboxes()
@@ -432,98 +511,62 @@ createToggleButton("Hitbox", 0.55, 85, function()
     return Hitbox_Enabled
 end)
 
-createToggleButton("Wallhack", 0.05, 85 + btnSpacingY, function()
-    Wallhack_Enabled = not Wallhack_Enabled
-    setWallhack(Wallhack_Enabled)
-    return Wallhack_Enabled
-end)
-
-createToggleButton("Tracer", 0.55, 85 + btnSpacingY, function()
-    Tracer_Enabled = not Tracer_Enabled
-    return Tracer_Enabled
-end)
-
-createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
+-- Infinity Jump
+createToggleButton("Infinity Jump", 0.55, currentY, function()
     InfinityJump_Enabled = not InfinityJump_Enabled
     return InfinityJump_Enabled
 end)
 
--- Слайдер скорости
-local speedSlider = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(btnWidth, 0, 0, 20),
-    Position = UDim2.new(0.55, 0, 0.55, 0),
-    BackgroundColor3 = Color3.fromRGB(60,60,60),
-    Visible = false,
-})
-new("UICorner", {Parent = speedSlider, CornerRadius = UDim.new(0,6)})
+currentY = currentY + btnSpacingY
 
-local speedSliderFill = new("Frame", {
-    Parent = speedSlider,
-    Size = UDim2.new(0.5, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(255,255,255),
-    BackgroundTransparency = 0.7,
-})
-new("UICorner", {Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
-
-local speedValueLabel = new("TextLabel", {
-    Parent = speedSlider,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Speed: "..WalkSpeed_Value,
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = Color3.fromRGB(255,255,255),
-})
-
-speedSlider.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        local connection
-        connection = RunService.Heartbeat:Connect(function()
-            local mouse = UserInputService:GetMouseLocation()
-            local sliderPos = speedSlider.AbsolutePosition
-            local sliderSize = speedSlider.AbsoluteSize
-            local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X)
-            local percent = relativeX / sliderSize.X
-            
-            WalkSpeed_Value = math.floor(16 + (100 - 16) * percent)
-            speedValueLabel.Text = "Speed: "..WalkSpeed_Value
-            speedSliderFill.Size = UDim2.new(percent, 0, 1, 0)
-        end)
-        
-        local function disconnect()
-            connection:Disconnect()
-        end
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                disconnect()
-            end
-        end)
-    end
-end)
-
--- Кнопка Speed
-local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
-    Speed_Enabled = not Speed_Enabled
-    speedSlider.Visible = Speed_Enabled
-    return Speed_Enabled
-end)
-
-createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*3, function()
+-- Night Vision
+createToggleButton("Night Vision", 0.05, currentY, function()
     NightVision_Enabled = not NightVision_Enabled
     setNightVision(NightVision_Enabled)
     return NightVision_Enabled
 end)
 
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*3, function()
+-- No Fall
+createToggleButton("No Fall", 0.55, currentY, function()
     NoFall_Enabled = not NoFall_Enabled
     return NoFall_Enabled
 end)
 
-createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*4, function()
-    AntiKnockback_Enabled = not AntiKnockback_Enabled
-    return AntiKnockback_Enabled
+currentY = currentY + btnSpacingY
+
+-- Speed
+createToggleButton("Speed", 0.05, currentY, function()
+    Speed_Enabled = not Speed_Enabled
+    return Speed_Enabled
+end)
+
+-- Spider
+createToggleButton("Spider", 0.55, currentY, function()
+    Spider_Enabled = not Spider_Enabled
+    return Spider_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Tracer
+createToggleButton("Tracer", 0.05, currentY, function()
+    Tracer_Enabled = not Tracer_Enabled
+    return Tracer_Enabled
+end)
+
+-- Trigger Bot
+createToggleButton("Trigger Bot", 0.55, currentY, function()
+    TriggerBot_Enabled = not TriggerBot_Enabled
+    return TriggerBot_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Wallhack
+createToggleButton("Wallhack", 0.05, currentY, function()
+    Wallhack_Enabled = not Wallhack_Enabled
+    setWallhack(Wallhack_Enabled)
+    return Wallhack_Enabled
 end)
 
 -- Player List
@@ -531,7 +574,7 @@ local playerListFrame = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 150, 0, 180),
     Position = UDim2.new(1, -160, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
+    BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = 0.4,
 })
 new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
@@ -543,7 +586,7 @@ local titleLabel = new("TextLabel", {
     Text = "Players",
     Font = Enum.Font.SourceSansBold,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
+    TextColor3 = TEXT_COLOR,
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
@@ -581,7 +624,7 @@ local function updatePlayerList()
                 Text = plr.Name .. string.format(" [%.0f]", dist),
                 Font = Enum.Font.SourceSans,
                 TextSize = 12,
-                TextColor3 = Color3.fromRGB(255,255,255),
+                TextColor3 = TEXT_COLOR,
                 TextXAlignment = Enum.TextXAlignment.Center,
             })
             totalHeight = totalHeight + 18
@@ -590,6 +633,20 @@ local function updatePlayerList()
     
     playerListScrolling.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 end
+
+-- Поиск по функциям
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local searchText = string.lower(searchBox.Text)
+    
+    for _, button in ipairs(buttons) do
+        local buttonText = string.lower(button.Text)
+        if string.find(buttonText, searchText) then
+            button.Visible = true
+        else
+            button.Visible = searchText == ""
+        end
+    end
+end)
 
 RunService.Heartbeat:Connect(function()
     updatePlayerList()

@@ -1,147 +1,3 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
-
-local function new(className, props)
-    local obj = Instance.new(className)
-    if props then
-        for k,v in pairs(props) do
-            obj[k] = v
-        end
-    end
-    return obj
-end
-
--- === Главное GUI ===
-local screenGui = new("ScreenGui", {
-    Name = "FluxClientGUI",
-    ResetOnSpawn = false,
-    Parent = playerGui,
-})
-
--- === Watermark ===
-local watermark = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 160, 0, 30),
-    Position = UDim2.new(0, 10, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.3,
-    ZIndex = 10,
-})
-new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
-
-new("TextLabel", {
-    Parent = watermark,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Flux Client",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    TextYAlignment = Enum.TextYAlignment.Center,
-    ZIndex = 11,
-})
-
--- === Окно логина ===
-local loginFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 300, 0, 160),
-    Position = UDim2.new(0.5, -150, 0.5, -80),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.5,
-    ZIndex = 20,
-})
-new("UICorner", {Parent = loginFrame, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = loginFrame, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
-
-new("TextLabel", {
-    Parent = loginFrame,
-    Position = UDim2.new(0, 12, 0, 8),
-    Size = UDim2.new(1, -24, 0, 24),
-    BackgroundTransparency = 1,
-    Text = "Flux Client",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 21,
-})
-
-local passwordBox = new("TextBox", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.85, 0, 0, 28),
-    Position = UDim2.new(0.075, 0, 0.4, 0),
-    PlaceholderText = "Введите ключ...",
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    BackgroundTransparency = 0.1,
-    ClearTextOnFocus = false,
-    ZIndex = 21,
-})
-new("UICorner", {Parent = passwordBox, CornerRadius = UDim.new(0,6)})
-
-local loginButton = new("TextButton", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.5, 0, 0, 28),
-    Position = UDim2.new(0.25, 0, 0.7, 0),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    Text = "Войти",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    ZIndex = 21,
-})
-new("UICorner", {Parent = loginButton, CornerRadius = UDim.new(0,6)})
-
-local loginError = new("TextLabel", {
-    Parent = loginFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0.9, 0),
-    BackgroundTransparency = 1,
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = Color3.fromRGB(255,0,0),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 21,
-})
-
--- === Главное меню ===
-local floatBtn = new("Frame", {
-    Name = "FloatButton",
-    Parent = screenGui,
-    Size = UDim2.new(0, 60, 0, 60),
-    Position = UDim2.new(0.02, 0, 0.5, -30),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.25,
-    ZIndex = 15,
-    Visible = false,
-})
-new("UICorner", {Parent = floatBtn, CornerRadius = UDim.new(0,12)})
-
-local btn = new("TextButton", {
-    Parent = floatBtn,
-    Size = UDim2.new(1,0,1,0),
-    BackgroundTransparency = 1,
-    Text = "≡",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 28,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    AutoButtonColor = false,
-    ZIndex = 16,
-})
-
-local window = new("Frame", {
-    Name = "MainWindow",
     Parent = screenGui,
     Size = UDim2.new(0, 520, 0, 340),
     Position = UDim2.new(0.5, -260, 0.5, -170),
@@ -725,16 +581,37 @@ Players.PlayerAdded:Connect(createPlayerESP)
 -- Инициализация Brainrot ESP
 findBrainrots()
 
--- Логика входа
+-- === Логика входа ===
+local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
+
 loginButton.MouseButton1Click:Connect(function()
-    local key = passwordBox.Text
-    if key == "ваш_ключ" then -- Замените на реальный ключ
-        loginFrame.Visible = false
-        floatBtn.Visible = true
-        watermark.Visible = true
-    else
-        loginError.Text = "Неверный ключ!"
-        task.wait(2)
-        loginError.Text = ""
-    end
+if passwordBox.Text == CORRECT_PASSWORD then
+floatBtn.Visible = true
+loginFrame.Visible = false
+loginError.Text = ""
+else
+loginError.Text = "Неверный пароль!"
+end
+end)
+
+btn.MouseButton1Click:Connect(function()
+window.Visible = not window.Visible
+end)
+
+btnClose.MouseButton1Click:Connect(function()
+window.Visible = false
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+createESP(plr)
+plr.CharacterAdded:Connect(function()
+if Hitbox_Enabled then
+task.wait(1)
+expandHitboxes()
+end
+if Wallhack_Enabled then
+task.wait(1)
+setWallhack(true)
+end
+end)
 end)

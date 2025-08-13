@@ -589,6 +589,171 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Speed Hack
+RunService.Heartbeat:Connect(function()
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            if Speed_Enabled then
+                humanoid.WalkSpeed = WalkSpeed_Value
+            elseif humanoid.WalkSpeed ~= 16 then
+                humanoid.WalkSpeed = 16
+            end
+        end
+    end
+    
+    -- Run other checks
+    noFall()
+    antiKnockback()
+    spider()
+    triggerBot()
+    
+    -- Aimbot
+    if Aimbot_Enabled and player.Character and isPlayerAlive(player) then
+        local closestPlayer, closestDistance = nil, math.huge
+        local myHead = player.Character:FindFirstChild("Head")
+        
+        if myHead then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+                    local targetHead = plr.Character:FindFirstChild("Head")
+                    if targetHead then
+                        local distance = (targetHead.Position - myHead.Position).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+            
+            if closestPlayer and closestPlayer.Character then
+                local targetHead = closestPlayer.Character:FindFirstChild("Head")
+                if targetHead then
+                    aimAt(targetHead)
+                end
+            end
+        end
+    end
+end)
+
+-- UI Кнопки
+local btnWidth = 0.4
+local btnHeight = 28
+local btnSpacingY = 30
+local buttons = {}
+
+local function createToggleButton(name, positionX, positionY, callback)
+    local button = new("TextButton", {
+        Parent = window,
+        Size = UDim2.new(btnWidth, 0, 0, btnHeight),
+        Position = UDim2.new(positionX, 0, 0, positionY),
+        BackgroundColor3 = BUTTON_COLOR,
+        BackgroundTransparency = 0,
+        Text = name,
+        Font = Enum.Font.SourceSans,
+        TextSize = 16,
+        TextColor3 = TEXT_COLOR,
+        Name = name,
+    })
+    new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
+    button.MouseButton1Click:Connect(function()
+        local state = callback()
+        if state then
+            button.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            button.BackgroundTransparency = 0.7
+        else
+            button.BackgroundColor3 = BUTTON_COLOR
+            button.BackgroundTransparency = 0
+        end
+    end)
+    table.insert(buttons, button)
+    return button
+end
+
+-- Создаем кнопки в алфавитном порядке
+local currentY = 85
+
+-- Aimbot
+createToggleButton("Aimbot", 0.05, currentY, function()
+    Aimbot_Enabled = not Aimbot_Enabled
+    return Aimbot_Enabled
+end)
+
+-- Anti Knockback
+createToggleButton("Anti Knockback", 0.55, currentY, function()
+    AntiKnockback_Enabled = not AntiKnockback_Enabled
+    return AntiKnockback_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- ESP
+createToggleButton("ESP", 0.05, currentY, function()
+    ESP_Enabled = not ESP_Enabled
+    return ESP_Enabled
+end)
+
+-- ESP Objects
+createToggleButton("ESP Objects", 0.55, currentY, function()
+    ESP_Objects_Enabled = not ESP_Objects_Enabled
+    if ESP_Objects_Enabled then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                createESPObject(obj)
+            end
+        end
+    else
+        for obj, conn in pairs(ESP_Objects_Connections) do
+            conn:Disconnect()
+            ESP_Objects_Connections[obj] = nil
+        end
+    end
+    return ESP_Objects_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Hitbox
+createToggleButton("Hitbox", 0.05, currentY, function()
+    Hitbox_Enabled = not Hitbox_Enabled
+    if Hitbox_Enabled then
+        expandHitboxes()
+    else
+        resetHitboxes()
+    end
+    return Hitbox_Enabled
+end)
+
+-- Infinity Jump
+createToggleButton("Infinity Jump", 0.55, currentY, function()
+    InfinityJump_Enabled = not InfinityJump_Enabled
+    return InfinityJump_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Night Vision
+createToggleButton("Night Vision", 0.05, currentY, function()
+    NightVision_Enabled = not NightVision_Enabled
+    setNightVision(NightVision_Enabled)
+    return NightVision_Enabled
+end)
+
+-- No Fall
+createToggleButton("No Fall", 0.55, currentY, function()
+    NoFall_Enabled = not NoFall_Enabled
+    return NoFall_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Silent Aim
+createToggleButton("Silent Aim", 0.05, currentY, function()
+    SilentAim_Enabled = not SilentAim_Enabled
+    return SilentAim_Enabled
+end)
+
 -- Speed
 createToggleButton("Speed", 0.55, currentY, function()
     Speed_Enabled = not Speed_Enabled

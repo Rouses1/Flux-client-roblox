@@ -603,6 +603,33 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- Speed
+local function createToggleButton(text, xPos, yPos, callback)
+    -- Эта функция не была реализована в оригинальном коде
+    -- Добавим базовую реализацию для предотвращения ошибок
+    local button = new("TextButton", {
+        Parent = window,
+        Size = UDim2.new(0.4, 0, 0, 30),
+        Position = UDim2.new(xPos, 0, yPos, 0),
+        BackgroundColor3 = BUTTON_COLOR,
+        Text = text,
+        Font = Enum.Font.SourceSans,
+        TextSize = 16,
+        TextColor3 = TEXT_COLOR,
+    })
+    new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
+    
+    button.MouseButton1Click:Connect(function()
+        local state = callback()
+        button.BackgroundColor3 = state and Color3.fromRGB(0, 255, 0) or BUTTON_COLOR
+    end)
+    
+    return button
+end
+
+local currentY = 0.1
+local btnSpacingY = 0.08
+
+-- Speed
 createToggleButton("Speed", 0.55, currentY, function()
     Speed_Enabled = not Speed_Enabled
     return Speed_Enabled
@@ -705,6 +732,14 @@ end
 -- Поиск по функциям
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     local searchText = string.lower(searchBox.Text)
+    
+    -- buttons не был определен, добавим временное решение
+    local buttons = {}
+    for _, child in ipairs(window:GetChildren()) do
+        if child:IsA("TextButton") then
+            table.insert(buttons, child)
+        end
+    end
     
     for _, button in ipairs(buttons) do
         local buttonText = string.lower(button.Text)

@@ -282,10 +282,6 @@ local function triggerBot()
                 local targetRoot = plr.Character.HumanoidRootPart
                 local targetHead = plr.Character.Head
                 
-                -- Проверяем расстояние (400 метров)
-                local distance = (targetHead.Position - player.Character.Head.Position).Magnitude
-                if distance > 400 then continue end
-                
                 -- Проверяем, находится ли игрок в поле зрения
                 local screenPoint = camera:WorldToViewportPoint(targetHead.Position)
                 if screenPoint.Z > 0 then -- Z > 0 значит перед камерой
@@ -310,10 +306,6 @@ end
 -- Aimbot
 local function aimAt(target)
     if not target or not target:IsDescendantOf(Workspace) then return end
-    
-    -- Проверяем расстояние (400 метров)
-    local distance = (target.Position - player.Character.Head.Position).Magnitude
-    if distance > 400 then return end
     
     local character = player.Character
     if not character then return end
@@ -348,9 +340,6 @@ local function silentAimHook()
             local targetHead = plr.Character:FindFirstChild("Head")
             if targetHead then
                 local distance = (targetHead.Position - myHead.Position).Magnitude
-                -- Проверяем расстояние (400 метров)
-                if distance > 400 then continue end
-                
                 if distance < closestDistance then
                     closestDistance = distance
                     closestPlayer = plr
@@ -371,14 +360,12 @@ local function silentAimHook()
     return nil
 end
 
--- ESP для всех объектов (только с ID)
+-- ESP для всех объектов
 local function createESPObject(obj)
     if not obj:IsA("BasePart") then return end
-    -- Проверяем наличие ID у объекта
-    if not obj:FindFirstChildWhichIsA("IntValue") and not obj:FindFirstChildWhichIsA("StringValue") then return end
     
     local box = Drawing.new("Square")
-    box.Color = Color3.new(0, 0, 0) -- Черный цвет
+    box.Color = Color3.new(1, 0, 0)
     box.Thickness = 1
     box.Transparency = 1
     box.Filled = false
@@ -428,13 +415,13 @@ local function createESP(plr)
     tracer.Transparency = 1
     
     local healthBar = Drawing.new("Line")
-    healthBar.Color = Color3.new(0,0,0) -- Черный цвет
+    healthBar.Color = Color3.new(0,1,0)
     healthBar.Thickness = 2
     healthBar.Transparency = 1
     
     local nameTag = Drawing.new("Text")
     nameTag.Text = plr.Name
-    nameTag.Color = Color3.new(1,1,1) -- Белый цвет
+    nameTag.Color = Color3.new(1,1,1)
     nameTag.Size = 14
     nameTag.Center = true
     nameTag.Outline = true
@@ -480,14 +467,14 @@ local function createESP(plr)
                         tracer.Visible = false
                     end
                     
-                    -- Health bar (черная)
+                    -- Health bar
                     local healthPercent = humanoid.Health / humanoid.MaxHealth
                     local barHeight = height * healthPercent
                     healthBar.From = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height - barHeight)
                     healthBar.To = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height)
                     healthBar.Visible = true
                     
-                    -- Name tag (белый)
+                    -- Name tag
                     nameTag.Position = Vector2.new(headPos.X, headPos.Y - 20)
                     nameTag.Visible = true
                 else
@@ -527,7 +514,7 @@ for _,plr in ipairs(Players:GetPlayers()) do
     createESP(plr)
 end
 
--- Инициализация ESP для всех объектов (только с ID)
+-- Инициализация ESP для всех объектов
 if ESP_Objects_Enabled then
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
@@ -601,33 +588,6 @@ UserInputService.JumpRequest:Connect(function()
         end
     end
 end)
-
--- Speed
-local function createToggleButton(text, xPos, yPos, callback)
-    -- Эта функция не была реализована в оригинальном коде
-    -- Добавим базовую реализацию для предотвращения ошибок
-    local button = new("TextButton", {
-        Parent = window,
-        Size = UDim2.new(0.4, 0, 0, 30),
-        Position = UDim2.new(xPos, 0, yPos, 0),
-        BackgroundColor3 = BUTTON_COLOR,
-        Text = text,
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = TEXT_COLOR,
-    })
-    new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
-    
-    button.MouseButton1Click:Connect(function()
-        local state = callback()
-        button.BackgroundColor3 = state and Color3.fromRGB(0, 255, 0) or BUTTON_COLOR
-    end)
-    
-    return button
-end
-
-local currentY = 0.1
-local btnSpacingY = 0.08
 
 -- Speed
 createToggleButton("Speed", 0.55, currentY, function()
@@ -732,14 +692,6 @@ end
 -- Поиск по функциям
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     local searchText = string.lower(searchBox.Text)
-    
-    -- buttons не был определен, добавим временное решение
-    local buttons = {}
-    for _, child in ipairs(window:GetChildren()) do
-        if child:IsA("TextButton") then
-            table.insert(buttons, child)
-        end
-    end
     
     for _, button in ipairs(buttons) do
         local buttonText = string.lower(button.Text)

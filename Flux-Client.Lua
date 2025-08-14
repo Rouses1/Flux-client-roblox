@@ -187,7 +187,7 @@ new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
 -- Переменные функций
 local ESP_Enabled = false
-local ESP_Objects_Enabled = false
+local ESP_MovingOnly = false -- Только движущиеся объекты
 local Tracer_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
@@ -205,6 +205,10 @@ local JumpPower_Value = 50
 local ESP_Connections = {}
 local ESP_Objects_Connections = {}
 local OriginalSizes = {}
+local AntiSlow_Enabled = false -- Защита от замедления
+local Strafe_Enabled = false -- Убирает замедление при прыжке
+local Levitation_Enabled = false -- Левитация
+local LastVelocity = Vector3.new(0,0,0)
 
 -- Функции защиты от античита
 local function isPlayerAlive(plr)
@@ -360,9 +364,23 @@ local function silentAimHook()
     return nil
 end
 
--- ESP для всех объектов
+-- ESP для движущихся объектов
+local function isObjectMoving(obj)
+    if not obj:IsA("BasePart") then return false end
+    
+    -- Проверяем, движется ли объект (скорость больше 0.1)
+    local velocity = obj:GetAttribute("LastVelocity") or Vector3.new(0,0,0)
+    local currentVelocity = obj.AssemblyLinearVelocity
+    
+    -- Сохраняем текущую скорость для следующей проверки
+    obj:SetAttribute("LastVelocity", currentVelocity)
+    
+    return currentVelocity.Magnitude > 0.1
+end
+
 local function createESPObject(obj)
     if not obj:IsA("BasePart") then return end
+    if ESP_MovingOnly and not isObjectMoving(obj) then return end
     
     local box = Drawing.new("Square")
     box.Color = Color3.new(0, 0, 0) -- Черный цвет
@@ -371,20 +389,18 @@ local function createESPObject(obj)
     box.Filled = false
     box.Visible = false
     
-    -- Трассировка для объектов
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(0, 0, 0) -- Черный цвет
-    tracer.Thickness = 1
-    tracer.Transparency = 1
-    tracer.Visible = false
-    
     local conn
     conn = RunService.RenderStepped:Connect(function()
         if not obj or not obj.Parent then
             box:Remove()
-            tracer:Remove()
             conn:Disconnect()
             ESP_Objects_Connections[obj] = nil
+            return
+        end
+        
+        -- Проверяем, нужно ли отображать этот объект (если включен фильтр движущихся)
+        if ESP_MovingOnly and not isObjectMoving(obj) then
+            box.Visible = false
             return
         end
         
@@ -394,14 +410,8 @@ local function createESPObject(obj)
             box.Size = Vector2.new(20, 20)
             box.Position = Vector2.new(pos.X - 10, pos.Y - 10)
             box.Visible = true
-            
-            -- Tracer
-            tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-            tracer.To = Vector2.new(pos.X, pos.Y)
-            tracer.Visible = true
         else
             box.Visible = false
-            tracer.Visible = false
         end
     end)
     
@@ -409,7 +419,6 @@ local function createESPObject(obj)
     
     obj.AncestryChanged:Connect(function()
         box:Remove()
-        tracer:Remove()
         conn:Disconnect()
         ESP_Objects_Connections[obj] = nil
     end)
@@ -525,20 +534,6 @@ local function createESP(plr)
     ESP_Connections[plr] = conn
 end
 
--- Инициализация ESP для всех игроков
-for _,plr in ipairs(Players:GetPlayers()) do
-    createESP(plr)
-end
-
--- Инициализация ESP для всех объектов
-if ESP_Objects_Enabled then
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-            createESPObject(obj)
-        end
-    end
-end
-
 -- Hitbox Expand
 local function expandHitboxes()
     for _, plr in pairs(Players:GetPlayers()) do
@@ -594,6 +589,60 @@ local function setWallhack(state)
     end
 end
 
+-- Anti-Slow (защита от замедления)
+local function antiSlow()
+    if not AntiSlow_Enabled or not player.Character then return end
+    
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        -- Фиксируем скорость передвижения
+        if humanoid.WalkSpeed < WalkSpeed_Value then
+            humanoid.WalkSpeed = WalkSpeed_Value
+        end
+        
+        -- Фиксируем силу прыжка
+        if humanoid.JumpPower < JumpPower_Value then
+            humanoid.JumpPower = JumpPower_Value
+        end
+    end
+end
+
+-- Strafe (убирает замедление при прыжке)
+local function strafe()
+    if not Strafe_Enabled or not player.Character then return end
+    
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+        -- Сохраняем скорость перед прыжком
+        LastVelocity = humanoid.MoveDirection * humanoid.WalkSpeed
+        
+        -- Применяем сохраненную скорость
+        if LastVelocity.Magnitude > 0 then
+            humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            task.wait(0.1)
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+    end
+end
+
+-- Levitation (левитация)
+local function levitation()
+    if not Levitation_Enabled or not player.Character then return end
+    
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return end
+    
+    -- Проверяем, находится ли игрок в воздухе
+    if humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+        -- Позиция на 1 метр выше земли
+        local targetY = hrp.Position.Y - 1
+        
+        -- Плавное перемещение к целевой высоте
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, (targetY - hrp.Position.Y) * 5, hrp.Velocity.Z)
+    end
+end
+
 -- Infinity Jump
 UserInputService.JumpRequest:Connect(function()
     if InfinityJump_Enabled and player.Character then
@@ -605,16 +654,23 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Speed Hack
+-- Speed Hack и другие функции
 RunService.Heartbeat:Connect(function()
     if player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
+            -- Speed Hack
             if Speed_Enabled then
                 humanoid.WalkSpeed = WalkSpeed_Value
             elseif humanoid.WalkSpeed ~= 16 then
                 humanoid.WalkSpeed = 16
             end
+            
+            -- Anti-Slow
+            antiSlow()
+            
+            -- Strafe
+            strafe()
         end
     end
     
@@ -623,6 +679,7 @@ RunService.Heartbeat:Connect(function()
     antiKnockback()
     spider()
     triggerBot()
+    levitation()
     
     -- Aimbot
     if Aimbot_Enabled and player.Character and isPlayerAlive(player) then
@@ -704,10 +761,36 @@ end)
 
 currentY = currentY + btnSpacingY
 
+-- Anti-Slow
+createToggleButton("Anti-Slow", 0.05, currentY, function()
+    AntiSlow_Enabled = not AntiSlow_Enabled
+    return AntiSlow_Enabled
+end)
+
 -- ESP
-createToggleButton("ESP", 0.05, currentY, function()
+createToggleButton("ESP", 0.55, currentY, function()
     ESP_Enabled = not ESP_Enabled
     return ESP_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- ESP Moving Only
+createToggleButton("ESP Moving Only", 0.05, currentY, function()
+    ESP_MovingOnly = not ESP_MovingOnly
+    -- Обновляем ESP для всех объектов
+    if ESP_Objects_Enabled then
+        for obj, conn in pairs(ESP_Objects_Connections) do
+            conn:Disconnect()
+            ESP_Objects_Connections[obj] = nil
+        end
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                createESPObject(obj)
+            end
+        end
+    end
+    return ESP_MovingOnly
 end)
 
 -- ESP Objects
@@ -749,39 +832,53 @@ end)
 
 currentY = currentY + btnSpacingY
 
+-- Levitation
+createToggleButton("Levitation", 0.05, currentY, function()
+    Levitation_Enabled = not Levitation_Enabled
+    return Levitation_Enabled
+end)
+
 -- Night Vision
-createToggleButton("Night Vision", 0.05, currentY, function()
+createToggleButton("Night Vision", 0.55, currentY, function()
     NightVision_Enabled = not NightVision_Enabled
     setNightVision(NightVision_Enabled)
     return NightVision_Enabled
 end)
 
+currentY = currentY + btnSpacingY
+
 -- No Fall
-createToggleButton("No Fall", 0.55, currentY, function()
+createToggleButton("No Fall", 0.05, currentY, function()
     NoFall_Enabled = not NoFall_Enabled
     return NoFall_Enabled
 end)
 
-currentY = currentY + btnSpacingY
-
 -- Silent Aim
-createToggleButton("Silent Aim", 0.05, currentY, function()
+createToggleButton("Silent Aim", 0.55, currentY, function()
     SilentAim_Enabled = not SilentAim_Enabled
     return SilentAim_Enabled
 end)
 
+currentY = currentY + btnSpacingY
+
 -- Speed
-createToggleButton("Speed", 0.55, currentY, function()
+createToggleButton("Speed", 0.05, currentY, function()
     Speed_Enabled = not Speed_Enabled
     return Speed_Enabled
 end)
 
-currentY = currentY + btnSpacingY
-
 -- Spider
-createToggleButton("Spider", 0.05, currentY, function()
+createToggleButton("Spider", 0.55, currentY, function()
     Spider_Enabled = not Spider_Enabled
     return Spider_Enabled
+end)
+
+currentY = currentY + btnSpacingY
+
+-- Strafe
+createToggleButton("Strafe", 0.05, currentY, function()
+    Strafe_Enabled = not Strafe_Enabled
+    return Strafe_Enabled
 end)
 
 -- Tracer
@@ -909,14 +1006,27 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
-RunService.Heartbeat:Connect(function()
+-- Защита от античита: скрываем вызовы
+local function protectCall(f)
+    return function(...)
+        local s,r = pcall(f, ...)
+        if not s then
+            warn("Protected call failed:", r)
+            return nil
+        end
+        return r
+    end
+end
+
+-- Обновляем список игроков
+RunService.Heartbeat:Connect(protectCall(function()
     updatePlayerList()
-end)
+end))
 
 -- Логика входа
 local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
 
-loginButton.MouseButton1Click:Connect(function()
+loginButton.MouseButton1Click:Connect(protectCall(function()
     if passwordBox.Text == CORRECT_PASSWORD then
         floatBtn.Visible = true
         loginFrame.Visible = false
@@ -924,19 +1034,20 @@ loginButton.MouseButton1Click:Connect(function()
     else
         loginError.Text = "Неверный пароль!"
     end
-end)
+end))
 
-btn.MouseButton1Click:Connect(function()
+btn.MouseButton1Click:Connect(protectCall(function()
     window.Visible = not window.Visible
-end)
+end))
 
-btnClose.MouseButton1Click:Connect(function()
+btnClose.MouseButton1Click:Connect(protectCall(function()
     window.Visible = false
-end)
+end))
 
-Players.PlayerAdded:Connect(function(plr)
+-- Обработка новых игроков
+Players.PlayerAdded:Connect(protectCall(function(plr)
     createESP(plr)
-    plr.CharacterAdded:Connect(function()
+    plr.CharacterAdded:Connect(protectCall(function()
         if Hitbox_Enabled then
             task.wait(1)
             expandHitboxes()
@@ -945,18 +1056,19 @@ Players.PlayerAdded:Connect(function(plr)
             task.wait(1)
             setWallhack(true)
         end
-    end)
-end)
+    end))
+end))
 
-Players.PlayerRemoving:Connect(function(plr)
+Players.PlayerRemoving:Connect(protectCall(function(plr)
     if ESP_Connections[plr] then
         ESP_Connections[plr]:Disconnect()
         ESP_Connections[plr] = nil
     end
-end)
+end))
 
-Workspace.DescendantAdded:Connect(function(obj)
+-- Обработка новых объектов
+Workspace.DescendantAdded:Connect(protectCall(function(obj)
     if ESP_Objects_Enabled and obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
         createESPObject(obj)
     end
-end)
+end))

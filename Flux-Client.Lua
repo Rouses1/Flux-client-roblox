@@ -17,6 +17,7 @@ local MAIN_COLOR = Color3.fromRGB(0, 0, 0)
 local MAIN_TRANSPARENCY = 0.5
 local BUTTON_COLOR = Color3.fromRGB(40, 40, 40)
 local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local CATEGORY_COLOR = Color3.fromRGB(30, 30, 30)
 
 -- Функция для создания объектов
 local function new(className, props)
@@ -149,8 +150,8 @@ local btn = new("TextButton", {
 local window = new("Frame", {
     Name = "MainWindow",
     Parent = screenGui,
-    Size = UDim2.new(0, 520, 0, 340),
-    Position = UDim2.new(0.5, -260, 0.5, -170),
+    Size = UDim2.new(0, 520, 0, 400),
+    Position = UDim2.new(0.5, -260, 0.5, -200),
     Visible = false,
     BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = MAIN_TRANSPARENCY,
@@ -185,9 +186,80 @@ local searchBox = new("TextBox", {
 })
 new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
+-- Категории
+local categories = {
+    ["Combat"] = {
+        "Aimbot", "Silent Aim", "Trigger Bot", "Hitbox"
+    },
+    ["Movement"] = {
+        "Speed", "Infinity Jump", "Spider", "No Fall", "Anti Knockback", "Levitation", "Strafe"
+    },
+    ["Visual"] = {
+        "ESP", "ESP Objects", "ESP Moving Only", "Tracer", "Wallhack", "Night Vision"
+    },
+    ["Other"] = {
+        "Anti-Slow"
+    }
+}
+
+local categoryFrames = {}
+local currentCategory = "Combat"
+
+-- Создаем фреймы категорий
+for categoryName, _ in pairs(categories) do
+    local frame = new("ScrollingFrame", {
+        Parent = window,
+        Size = UDim2.new(1, -20, 1, -100),
+        Position = UDim2.new(0, 10, 0, 80),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        Visible = false,
+    })
+    
+    new("UIListLayout", {
+        Parent = frame,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5),
+    })
+    
+    categoryFrames[categoryName] = frame
+end
+
+-- Создаем кнопки категорий
+local categoryButtons = {}
+local categoryX = 0.05
+for categoryName, _ in pairs(categories) do
+    local button = new("TextButton", {
+        Parent = window,
+        Size = UDim2.new(0.2, 0, 0, 25),
+        Position = UDim2.new(categoryX, 0, 0, 80),
+        BackgroundColor3 = CATEGORY_COLOR,
+        Text = categoryName,
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        TextColor3 = TEXT_COLOR,
+    })
+    new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
+    
+    button.MouseButton1Click:Connect(function()
+        currentCategory = categoryName
+        for name, frame in pairs(categoryFrames) do
+            frame.Visible = (name == categoryName)
+        end
+        for _, btn in pairs(categoryButtons) do
+            btn.BackgroundColor3 = CATEGORY_COLOR
+        end
+        button.BackgroundColor3 = BUTTON_COLOR
+    end)
+    
+    categoryButtons[categoryName] = button
+    categoryX = categoryX + 0.22
+end
+
 -- Переменные функций
 local ESP_Enabled = false
-local ESP_MovingOnly = false -- Только движущиеся объекты
+local ESP_MovingOnly = false
 local Tracer_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
@@ -205,185 +277,37 @@ local JumpPower_Value = 50
 local ESP_Connections = {}
 local ESP_Objects_Connections = {}
 local OriginalSizes = {}
-local AntiSlow_Enabled = false -- Защита от замедления
-local Strafe_Enabled = false -- Убирает замедление при прыжке
-local Levitation_Enabled = false -- Левитация
+local AntiSlow_Enabled = false
+local Strafe_Enabled = false
+local Levitation_Enabled = false
 local LastVelocity = Vector3.new(0,0,0)
 
--- Функции защиты от античита
+-- Улучшенные функции
 local function isPlayerAlive(plr)
-    if not plr.Character then return false end
+    if not plr or not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0
+    return humanoid and humanoid.Health > 0 and not humanoid:GetState() == Enum.HumanoidStateType.Dead
 end
 
 local function isCharacterValid(char)
-    return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head")
+    return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") and char:FindFirstChildOfClass("Humanoid")
 end
 
--- Night Vision
-local function setNightVision(state)
-    if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    else
-        Lighting.Ambient = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Top = Color3.new(0, 0, 0)
-    end
-end
-
--- No Fall
-local function noFall()
-    if NoFall_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-            humanoid:ChangeState("Running")
-        end
-    end
-end
-
--- Anti Knockback
-local function antiKnockback()
-    if AntiKnockback_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        end
-    end
-end
-
--- Spider
-local function spider()
-    if Spider_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterDescendantsInstances = {player.Character}
-            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-            
-            local rayOrigin = player.Character.HumanoidRootPart.Position
-            local rayDirection = Vector3.new(0, -5, 0)
-            local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-            
-            if raycastResult then
-                humanoid.JumpPower = JumpPower_Value
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end
-    end
-end
-
--- Trigger Bot
-local function triggerBot()
-    if TriggerBot_Enabled and player.Character and isPlayerAlive(player) then
-        local closestPlayer, closestDistance = nil, math.huge
-        
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
-                local targetRoot = plr.Character.HumanoidRootPart
-                local targetHead = plr.Character.Head
-                
-                -- Проверяем, находится ли игрок в поле зрения
-                local screenPoint = camera:WorldToViewportPoint(targetHead.Position)
-                if screenPoint.Z > 0 then -- Z > 0 значит перед камерой
-                    local mousePos = Vector2.new(mouse.X, mouse.Y)
-                    local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
-                    local distance = (mousePos - targetPos).Magnitude
-                    
-                    if distance < 50 and distance < closestDistance then
-                        closestDistance = distance
-                        closestPlayer = plr
-                    end
-                end
-            end
-        end
-        
-        if closestPlayer then
-            mouse1click()
-        end
-    end
-end
-
--- Aimbot
-local function aimAt(target)
-    if not target or not target:IsDescendantOf(Workspace) then return end
-    
-    local character = player.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    -- Плавное наведение
-    local targetPosition = target.Position
-    local camera = Workspace.CurrentCamera
-    local lookAt = (targetPosition - camera.CFrame.Position).Unit
-    
-    -- Плавное изменение угла камеры
-    local current = camera.CFrame.LookVector
-    local smooth = 0.5 -- Коэффициент плавности (0-1)
-    local new = current:Lerp(lookAt, smooth)
-    
-    -- Устанавливаем новое направление камеры
-    camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + new)
-end
-
--- Silent Aim (перенаправление пуль)
-local function silentAimHook()
-    if not SilentAim_Enabled or not player.Character then return end
-    
-    local closestPlayer, closestDistance = nil, math.huge
-    local myHead = player.Character:FindFirstChild("Head")
-    if not myHead then return end
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
-            local targetHead = plr.Character:FindFirstChild("Head")
-            if targetHead then
-                local distance = (targetHead.Position - myHead.Position).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestPlayer = plr
-                end
-            end
-        end
-    end
-    
-    if closestPlayer and closestPlayer.Character then
-        local targetHead = closestPlayer.Character:FindFirstChild("Head")
-        if targetHead then
-            -- Возвращаем позицию головы ближайшего игрока
-            return targetHead.Position
-        end
-    end
-    
-    -- Если никого нет, возвращаем исходную позицию
-    return nil
-end
-
--- ESP для движущихся объектов
+-- Улучшенный ESP для объектов
 local function isObjectMoving(obj)
-    if not obj:IsA("BasePart") then return false end
-    
-    -- Проверяем, движется ли объект (скорость больше 0.1)
-    local velocity = obj:GetAttribute("LastVelocity") or Vector3.new(0,0,0)
-    local currentVelocity = obj.AssemblyLinearVelocity
-    
-    -- Сохраняем текущую скорость для следующей проверки
-    obj:SetAttribute("LastVelocity", currentVelocity)
-    
-    return currentVelocity.Magnitude > 0.1
+    if not obj or not obj:IsA("BasePart") then return false end
+    local velocity = obj.AssemblyLinearVelocity
+    return velocity and velocity.Magnitude > 0.1
 end
 
 local function createESPObject(obj)
-    if not obj:IsA("BasePart") then return end
+    if not obj or not obj:IsA("BasePart") or obj:IsDescendantOf(player.Character) then return end
     if ESP_MovingOnly and not isObjectMoving(obj) then return end
     
+    if ESP_Objects_Connections[obj] then return end
+    
     local box = Drawing.new("Square")
-    box.Color = Color3.new(0, 0, 0) -- Черный цвет
+    box.Color = Color3.new(0, 0, 0)
     box.Thickness = 2
     box.Transparency = 1
     box.Filled = false
@@ -393,12 +317,11 @@ local function createESPObject(obj)
     conn = RunService.RenderStepped:Connect(function()
         if not obj or not obj.Parent then
             box:Remove()
-            conn:Disconnect()
+            if conn then conn:Disconnect() end
             ESP_Objects_Connections[obj] = nil
             return
         end
         
-        -- Проверяем, нужно ли отображать этот объект (если включен фильтр движущихся)
         if ESP_MovingOnly and not isObjectMoving(obj) then
             box.Visible = false
             return
@@ -406,7 +329,6 @@ local function createESPObject(obj)
         
         local pos, vis = camera:WorldToViewportPoint(obj.Position)
         if vis and ESP_Objects_Enabled then
-            -- Box
             box.Size = Vector2.new(20, 20)
             box.Position = Vector2.new(pos.X - 10, pos.Y - 10)
             box.Visible = true
@@ -417,36 +339,38 @@ local function createESPObject(obj)
     
     ESP_Objects_Connections[obj] = conn
     
-    obj.AncestryChanged:Connect(function()
+    local ancestryConn
+    ancestryConn = obj.AncestryChanged:Connect(function()
         box:Remove()
-        conn:Disconnect()
+        if conn then conn:Disconnect() end
+        if ancestryConn then ancestryConn:Disconnect() end
         ESP_Objects_Connections[obj] = nil
     end)
 end
 
--- ESP для игроков
+-- Улучшенный ESP для игроков
 local function createESP(plr)
     if plr == player then return end
     
     local box = Drawing.new("Square")
-    box.Color = Color3.new(1,1,1) -- Белая рамка
+    box.Color = Color3.new(1,1,1)
     box.Thickness = 1.5
     box.Transparency = 1
     box.Filled = false
     
     local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(1,1,1) -- Белая трассировка
+    tracer.Color = Color3.new(1,1,1)
     tracer.Thickness = 1
     tracer.Transparency = 1
     
     local healthBar = Drawing.new("Line")
-    healthBar.Color = Color3.new(0,0,0) -- Черная полоса здоровья
+    healthBar.Color = Color3.new(0,0,0)
     healthBar.Thickness = 2
     healthBar.Transparency = 1
     
     local nameTag = Drawing.new("Text")
     nameTag.Text = plr.Name
-    nameTag.Color = Color3.new(1,1,1) -- Белый текст
+    nameTag.Color = Color3.new(1,1,1)
     nameTag.Size = 14
     nameTag.Center = true
     nameTag.Outline = true
@@ -459,7 +383,7 @@ local function createESP(plr)
             tracer:Remove()
             healthBar:Remove()
             nameTag:Remove()
-            conn:Disconnect()
+            if conn then conn:Disconnect() end
             ESP_Connections[plr] = nil
             return
         end
@@ -468,7 +392,7 @@ local function createESP(plr)
         local head = plr.Character:FindFirstChild("Head")
         local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
         
-        if hrp and head and humanoid then
+        if hrp and head and humanoid and humanoid.Health > 0 then
             local pos, vis = camera:WorldToViewportPoint(hrp.Position)
             
             if vis then
@@ -478,12 +402,10 @@ local function createESP(plr)
                 local width = height / 2
                 
                 if ESP_Enabled then
-                    -- Box
                     box.Size = Vector2.new(width, height)
                     box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
                     box.Visible = true
                     
-                    -- Tracer
                     if Tracer_Enabled then
                         tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
                         tracer.To = Vector2.new(pos.X, pos.Y)
@@ -492,14 +414,12 @@ local function createESP(plr)
                         tracer.Visible = false
                     end
                     
-                    -- Health bar (черная)
                     local healthPercent = humanoid.Health / humanoid.MaxHealth
                     local barHeight = height * healthPercent
                     healthBar.From = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height - barHeight)
                     healthBar.To = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height)
                     healthBar.Visible = true
                     
-                    -- Name tag (белый)
                     nameTag.Position = Vector2.new(headPos.X, headPos.Y - 20)
                     nameTag.Visible = true
                 else
@@ -522,19 +442,22 @@ local function createESP(plr)
         end
     end)
     
-    plr.AncestryChanged:Connect(function()
+    ESP_Connections[plr] = conn
+    
+    local function cleanUp()
         box:Remove()
         tracer:Remove()
         healthBar:Remove()
         nameTag:Remove()
-        conn:Disconnect()
+        if conn then conn:Disconnect() end
         ESP_Connections[plr] = nil
-    end)
+    end
     
-    ESP_Connections[plr] = conn
+    plr.AncestryChanged:Connect(cleanUp)
+    plr.CharacterRemoving:Connect(cleanUp)
 end
 
--- Hitbox Expand
+-- Улучшенный Hitbox
 local function expandHitboxes()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -560,7 +483,7 @@ end
 
 local function resetHitboxes()
     for plr, sizes in pairs(OriginalSizes) do
-        if plr.Character then
+        if plr and plr.Character then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             local head = plr.Character:FindFirstChild("Head")
             if hrp and head then
@@ -574,7 +497,7 @@ local function resetHitboxes()
     OriginalSizes = {}
 end
 
--- Wallhack
+-- Улучшенный Wallhack
 local function setWallhack(state)
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
@@ -589,43 +512,48 @@ local function setWallhack(state)
     end
 end
 
--- Anti-Slow (защита от замедления)
+-- Улучшенный Anti-Slow
 local function antiSlow()
     if not AntiSlow_Enabled or not player.Character then return end
     
     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        -- Фиксируем скорость передвижения
         if humanoid.WalkSpeed < WalkSpeed_Value then
             humanoid.WalkSpeed = WalkSpeed_Value
         end
         
-        -- Фиксируем силу прыжка
         if humanoid.JumpPower < JumpPower_Value then
             humanoid.JumpPower = JumpPower_Value
+        end
+        
+        -- Защита от эффектов замедления
+        for _, effect in ipairs(humanoid:GetChildren()) do
+            if effect:IsA("NumberValue") and (effect.Name:find("Slow") or effect.Name:find("Debuff")) then
+                effect:Destroy()
+            end
         end
     end
 end
 
--- Strafe (убирает замедление при прыжке)
+-- Улучшенный Strafe
 local function strafe()
     if not Strafe_Enabled or not player.Character then return end
     
     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Jumping then
-        -- Сохраняем скорость перед прыжком
-        LastVelocity = humanoid.MoveDirection * humanoid.WalkSpeed
-        
-        -- Применяем сохраненную скорость
-        if LastVelocity.Magnitude > 0 then
-            humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
-            task.wait(0.1)
-            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    if humanoid then
+        if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+            LastVelocity = humanoid.MoveDirection * humanoid.WalkSpeed
+            
+            if LastVelocity.Magnitude > 0 then
+                humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+                task.wait(0.05)
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
         end
     end
 end
 
--- Levitation (левитация)
+-- Улучшенная Levitation
 local function levitation()
     if not Levitation_Enabled or not player.Character then return end
     
@@ -633,14 +561,181 @@ local function levitation()
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
     
-    -- Проверяем, находится ли игрок в воздухе
-    if humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-        -- Позиция на 1 метр выше земли
-        local targetY = hrp.Position.Y - 1
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {player.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    
+    local rayOrigin = hrp.Position
+    local rayDirection = Vector3.new(0, -10, 0)
+    local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    
+    if raycastResult then
+        local distanceToGround = (raycastResult.Position - hrp.Position).Magnitude
         
-        -- Плавное перемещение к целевой высоте
-        hrp.Velocity = Vector3.new(hrp.Velocity.X, (targetY - hrp.Position.Y) * 5, hrp.Velocity.Z)
+        if distanceToGround > 1.5 then
+            local targetYVelocity = (1.5 - distanceToGround) * 5
+            hrp.Velocity = Vector3.new(
+                hrp.Velocity.X,
+                math.clamp(targetYVelocity, -50, 50),
+                hrp.Velocity.Z
+            )
+        end
     end
+end
+
+-- Улучшенный Night Vision
+local function setNightVision(state)
+    if state then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+    else
+        Lighting.Ambient = Color3.new(0, 0, 0)
+        Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
+        Lighting.ColorShift_Top = Color3.new(0, 0, 0)
+        Lighting.Brightness = 1
+    end
+end
+
+-- Улучшенный No Fall
+local function noFall()
+    if NoFall_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {player.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            
+            local rayOrigin = player.Character:FindFirstChild("HumanoidRootPart").Position
+            local rayDirection = Vector3.new(0, -50, 0)
+            local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            
+            if raycastResult and raycastResult.Position.Y < rayOrigin.Y - 10 then
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+    end
+end
+
+-- Улучшенный Anti Knockback
+local function antiKnockback()
+    if AntiKnockback_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X * 0.5, math.min(hrp.Velocity.Y, 0), hrp.Velocity.Z * 0.5)
+            end
+        end
+    end
+end
+
+-- Улучшенный Spider
+local function spider()
+    if Spider_Enabled and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {player.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            
+            local rayOrigin = player.Character.HumanoidRootPart.Position
+            local rayDirection = Vector3.new(0, -5, 0)
+            local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            
+            if raycastResult then
+                humanoid.JumpPower = JumpPower_Value
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end
+
+-- Улучшенный Trigger Bot
+local function triggerBot()
+    if TriggerBot_Enabled and player.Character and isPlayerAlive(player) then
+        local closestPlayer, closestDistance = nil, math.huge
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+                local targetRoot = plr.Character.HumanoidRootPart
+                local targetHead = plr.Character.Head
+                
+                local screenPoint = camera:WorldToViewportPoint(targetHead.Position)
+                if screenPoint.Z > 0 then
+                    local mousePos = Vector2.new(mouse.X, mouse.Y)
+                    local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                    local distance = (mousePos - targetPos).Magnitude
+                    
+                    if distance < 50 and distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = plr
+                    end
+                end
+            end
+        end
+        
+        if closestPlayer then
+            mouse1click()
+        end
+    end
+end
+
+-- Улучшенный Aimbot
+local function aimAt(target)
+    if not target or not target:IsDescendantOf(Workspace) then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local targetPosition = target.Position
+    local camera = Workspace.CurrentCamera
+    local lookAt = (targetPosition - camera.CFrame.Position).Unit
+    
+    local current = camera.CFrame.LookVector
+    local smooth = 0.5
+    local new = current:Lerp(lookAt, smooth)
+    
+    camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + new)
+end
+
+-- Улучшенный Silent Aim
+local function silentAimHook()
+    if not SilentAim_Enabled or not player.Character then return end
+    
+    local closestPlayer, closestDistance = nil, math.huge
+    local myHead = player.Character:FindFirstChild("Head")
+    if not myHead then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
+            local targetHead = plr.Character:FindFirstChild("Head")
+            if targetHead then
+                local distance = (targetHead.Position - myHead.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = plr
+                end
+            end
+        end
+    end
+    
+    if closestPlayer and closestPlayer.Character then
+        local targetHead = closestPlayer.Character:FindFirstChild("Head")
+        if targetHead then
+            return targetHead.Position + Vector3.new(0, 0.5, 0) -- Aim slightly above head
+        end
+    end
+    
+    return nil
 end
 
 -- Infinity Jump
@@ -654,34 +749,28 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Speed Hack и другие функции
+-- Основной цикл
 RunService.Heartbeat:Connect(function()
     if player.Character then
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            -- Speed Hack
             if Speed_Enabled then
                 humanoid.WalkSpeed = WalkSpeed_Value
             elseif humanoid.WalkSpeed ~= 16 then
                 humanoid.WalkSpeed = 16
             end
             
-            -- Anti-Slow
             antiSlow()
-            
-            -- Strafe
             strafe()
         end
     end
     
-    -- Run other checks
     noFall()
     antiKnockback()
     spider()
     triggerBot()
     levitation()
     
-    -- Aimbot
     if Aimbot_Enabled and player.Character and isPlayerAlive(player) then
         local closestPlayer, closestDistance = nil, math.huge
         local myHead = player.Character:FindFirstChild("Head")
@@ -710,17 +799,11 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- UI Кнопки
-local btnWidth = 0.4
-local btnHeight = 28
-local btnSpacingY = 30
-local buttons = {}
-
-local function createToggleButton(name, positionX, positionY, callback)
+-- Создаем кнопки функций
+local function createToggleButton(category, name, callback)
     local button = new("TextButton", {
-        Parent = window,
-        Size = UDim2.new(btnWidth, 0, 0, btnHeight),
-        Position = UDim2.new(positionX, 0, 0, positionY),
+        Parent = categoryFrames[category],
+        Size = UDim2.new(1, -10, 0, 28),
         BackgroundColor3 = BUTTON_COLOR,
         BackgroundTransparency = 0,
         Text = name,
@@ -728,8 +811,10 @@ local function createToggleButton(name, positionX, positionY, callback)
         TextSize = 16,
         TextColor3 = TEXT_COLOR,
         Name = name,
+        LayoutOrder = #categoryFrames[category]:GetChildren()
     })
     new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
+    
     button.MouseButton1Click:Connect(function()
         local state = callback()
         if state then
@@ -740,243 +825,151 @@ local function createToggleButton(name, positionX, positionY, callback)
             button.BackgroundTransparency = 0
         end
     end)
-    table.insert(buttons, button)
-    return button
+    
+    categoryFrames[category].CanvasSize = UDim2.new(0, 0, 0, #categoryFrames[category]:GetChildren() * 33)
 end
 
--- Создаем кнопки в алфавитном порядке
-local currentY = 85
-
--- Aimbot
-createToggleButton("Aimbot", 0.05, currentY, function()
-    Aimbot_Enabled = not Aimbot_Enabled
-    return Aimbot_Enabled
-end)
-
--- Anti Knockback
-createToggleButton("Anti Knockback", 0.55, currentY, function()
-    AntiKnockback_Enabled = not AntiKnockback_Enabled
-    return AntiKnockback_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Anti-Slow
-createToggleButton("Anti-Slow", 0.05, currentY, function()
-    AntiSlow_Enabled = not AntiSlow_Enabled
-    return AntiSlow_Enabled
-end)
-
--- ESP
-createToggleButton("ESP", 0.55, currentY, function()
-    ESP_Enabled = not ESP_Enabled
-    return ESP_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- ESP Moving Only
-createToggleButton("ESP Moving Only", 0.05, currentY, function()
-    ESP_MovingOnly = not ESP_MovingOnly
-    -- Обновляем ESP для всех объектов
-    if ESP_Objects_Enabled then
-        for obj, conn in pairs(ESP_Objects_Connections) do
-            conn:Disconnect()
-            ESP_Objects_Connections[obj] = nil
-        end
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-                createESPObject(obj)
-            end
-        end
-    end
-    return ESP_MovingOnly
-end)
-
--- ESP Objects
-createToggleButton("ESP Objects", 0.55, currentY, function()
-    ESP_Objects_Enabled = not ESP_Objects_Enabled
-    if ESP_Objects_Enabled then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-                createESPObject(obj)
-            end
-        end
-    else
-        for obj, conn in pairs(ESP_Objects_Connections) do
-            conn:Disconnect()
-            ESP_Objects_Connections[obj] = nil
-        end
-    end
-    return ESP_Objects_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Hitbox
-createToggleButton("Hitbox", 0.05, currentY, function()
-    Hitbox_Enabled = not Hitbox_Enabled
-    if Hitbox_Enabled then
-        expandHitboxes()
-    else
-        resetHitboxes()
-    end
-    return Hitbox_Enabled
-end)
-
--- Infinity Jump
-createToggleButton("Infinity Jump", 0.55, currentY, function()
-    InfinityJump_Enabled = not InfinityJump_Enabled
-    return InfinityJump_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Levitation
-createToggleButton("Levitation", 0.05, currentY, function()
-    Levitation_Enabled = not Levitation_Enabled
-    return Levitation_Enabled
-end)
-
--- Night Vision
-createToggleButton("Night Vision", 0.55, currentY, function()
-    NightVision_Enabled = not NightVision_Enabled
-    setNightVision(NightVision_Enabled)
-    return NightVision_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- No Fall
-createToggleButton("No Fall", 0.05, currentY, function()
-    NoFall_Enabled = not NoFall_Enabled
-    return NoFall_Enabled
-end)
-
--- Silent Aim
-createToggleButton("Silent Aim", 0.55, currentY, function()
-    SilentAim_Enabled = not SilentAim_Enabled
-    return SilentAim_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Speed
-createToggleButton("Speed", 0.05, currentY, function()
-    Speed_Enabled = not Speed_Enabled
-    return Speed_Enabled
-end)
-
--- Spider
-createToggleButton("Spider", 0.55, currentY, function()
-    Spider_Enabled = not Spider_Enabled
-    return Spider_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Strafe
-createToggleButton("Strafe", 0.05, currentY, function()
-    Strafe_Enabled = not Strafe_Enabled
-    return Strafe_Enabled
-end)
-
--- Tracer
-createToggleButton("Tracer", 0.55, currentY, function()
-    Tracer_Enabled = not Tracer_Enabled
-    return Tracer_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Trigger Bot
-createToggleButton("Trigger Bot", 0.05, currentY, function()
-    TriggerBot_Enabled = not TriggerBot_Enabled
-    return TriggerBot_Enabled
-end)
-
--- Wallhack
-createToggleButton("Wallhack", 0.55, currentY, function()
-    Wallhack_Enabled = not Wallhack_Enabled
-    setWallhack(Wallhack_Enabled)
-    return Wallhack_Enabled
-end)
-
--- Player List
-local playerListFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 150, 0, 180),
-    Position = UDim2.new(1, -160, 0, 10),
-    BackgroundColor3 = MAIN_COLOR,
-    BackgroundTransparency = 0.4,
-})
-new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
-
-local titleLabel = new("TextLabel", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "Players",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
-local playerListScrolling = new("ScrollingFrame", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, -10, 1, -30),
-    Position = UDim2.new(0, 5, 0, 25),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-})
-
-local playerListLayout = new("UIListLayout", {
-    Parent = playerListScrolling,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Padding = UDim.new(0, 2),
-})
-
-local function updatePlayerList()
-    for _, child in ipairs(playerListScrolling:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
+-- Создаем кнопки для каждой категории
+for category, functions in pairs(categories) do
+    for _, funcName in ipairs(functions) do
+        if funcName == "Aimbot" then
+            createToggleButton(category, funcName, function()
+                Aimbot_Enabled = not Aimbot_Enabled
+                return Aimbot_Enabled
+            end)
+        elseif funcName == "Silent Aim" then
+            createToggleButton(category, funcName, function()
+                SilentAim_Enabled = not SilentAim_Enabled
+                return SilentAim_Enabled
+            end)
+        elseif funcName == "Trigger Bot" then
+            createToggleButton(category, funcName, function()
+                TriggerBot_Enabled = not TriggerBot_Enabled
+                return TriggerBot_Enabled
+            end)
+        elseif funcName == "Hitbox" then
+            createToggleButton(category, funcName, function()
+                Hitbox_Enabled = not Hitbox_Enabled
+                if Hitbox_Enabled then
+                    expandHitboxes()
+                else
+                    resetHitboxes()
+                end
+                return Hitbox_Enabled
+            end)
+        elseif funcName == "Speed" then
+            createToggleButton(category, funcName, function()
+                Speed_Enabled = not Speed_Enabled
+                return Speed_Enabled
+            end)
+        elseif funcName == "Infinity Jump" then
+            createToggleButton(category, funcName, function()
+                InfinityJump_Enabled = not InfinityJump_Enabled
+                return InfinityJump_Enabled
+            end)
+        elseif funcName == "Spider" then
+            createToggleButton(category, funcName, function()
+                Spider_Enabled = not Spider_Enabled
+                return Spider_Enabled
+            end)
+        elseif funcName == "No Fall" then
+            createToggleButton(category, funcName, function()
+                NoFall_Enabled = not NoFall_Enabled
+                return NoFall_Enabled
+            end)
+        elseif funcName == "Anti Knockback" then
+            createToggleButton(category, funcName, function()
+                AntiKnockback_Enabled = not AntiKnockback_Enabled
+                return AntiKnockback_Enabled
+            end)
+        elseif funcName == "Levitation" then
+            createToggleButton(category, funcName, function()
+                Levitation_Enabled = not Levitation_Enabled
+                return Levitation_Enabled
+            end)
+        elseif funcName == "Strafe" then
+            createToggleButton(category, funcName, function()
+                Strafe_Enabled = not Strafe_Enabled
+                return Strafe_Enabled
+            end)
+        elseif funcName == "ESP" then
+            createToggleButton(category, funcName, function()
+                ESP_Enabled = not ESP_Enabled
+                return ESP_Enabled
+            end)
+        elseif funcName == "ESP Objects" then
+            createToggleButton(category, funcName, function()
+                ESP_Objects_Enabled = not ESP_Objects_Enabled
+                if ESP_Objects_Enabled then
+                    for _, obj in ipairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                            createESPObject(obj)
+                        end
+                    end
+                else
+                    for obj, conn in pairs(ESP_Objects_Connections) do
+                        if conn then conn:Disconnect() end
+                        ESP_Objects_Connections[obj] = nil
+                    end
+                end
+                return ESP_Objects_Enabled
+            end)
+        elseif funcName == "ESP Moving Only" then
+            createToggleButton(category, funcName, function()
+                ESP_MovingOnly = not ESP_MovingOnly
+                if ESP_Objects_Enabled then
+                    for obj, conn in pairs(ESP_Objects_Connections) do
+                        if conn then conn:Disconnect() end
+                        ESP_Objects_Connections[obj] = nil
+                    end
+                    for _, obj in ipairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                            createESPObject(obj)
+                        end
+                    end
+                end
+                return ESP_MovingOnly
+            end)
+        elseif funcName == "Tracer" then
+            createToggleButton(category, funcName, function()
+                Tracer_Enabled = not Tracer_Enabled
+                return Tracer_Enabled
+            end)
+        elseif funcName == "Wallhack" then
+            createToggleButton(category, funcName, function()
+                Wallhack_Enabled = not Wallhack_Enabled
+                setWallhack(Wallhack_Enabled)
+                return Wallhack_Enabled
+            end)
+        elseif funcName == "Night Vision" then
+            createToggleButton(category, funcName, function()
+                NightVision_Enabled = not NightVision_Enabled
+                setNightVision(NightVision_Enabled)
+                return NightVision_Enabled
+            end)
+        elseif funcName == "Anti-Slow" then
+            createToggleButton(category, funcName, function()
+                AntiSlow_Enabled = not AntiSlow_Enabled
+                return AntiSlow_Enabled
+            end)
         end
     end
-    
-    local totalHeight = 0
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and 
-           player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            local playerEntry = new("TextLabel", {
-                Parent = playerListScrolling,
-                Size = UDim2.new(1, 0, 0, 16),
-                BackgroundTransparency = 1,
-                Text = plr.Name .. string.format(" [%.0f]", dist),
-                Font = Enum.Font.SourceSans,
-                TextSize = 12,
-                TextColor3 = TEXT_COLOR,
-                TextXAlignment = Enum.TextXAlignment.Center,
-            })
-            totalHeight = totalHeight + 18
-        end
-    end
-    
-    playerListScrolling.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 end
 
 -- Поиск по функциям
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     local searchText = string.lower(searchBox.Text)
     
-    for _, button in ipairs(buttons) do
-        local buttonText = string.lower(button.Text)
-        if string.find(buttonText, searchText) then
-            button.Visible = true
-        else
-            button.Visible = searchText == ""
+    for category, frame in pairs(categoryFrames) do
+        for _, child in ipairs(frame:GetChildren()) do
+            if child:IsA("TextButton") then
+                local buttonText = string.lower(child.Text)
+                if string.find(buttonText, searchText) then
+                    child.Visible = true
+                else
+                    child.Visible = searchText == ""
+                end
+            end
         end
     end
 end)
@@ -994,7 +987,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 local ray = args[1]
                 
                 if typeof(ray) == "Ray" then
-                    -- Меняем направление луча на голову ближайшего игрока
                     local newRay = Ray.new(ray.Origin, (targetPos - ray.Origin).Unit * ray.Direction.Magnitude)
                     args[1] = newRay
                     return oldNamecall(self, unpack(args))
@@ -1006,7 +998,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
--- Защита от античита: скрываем вызовы
+-- Защита от античита
 local function protectCall(f)
     return function(...)
         local s,r = pcall(f, ...)
@@ -1018,10 +1010,9 @@ local function protectCall(f)
     end
 end
 
--- Обновляем список игроков
-RunService.Heartbeat:Connect(protectCall(function()
-    updatePlayerList()
-end))
+-- Активируем первую категорию по умолчанию
+categoryFrames["Combat"].Visible = true
+categoryButtons["Combat"].BackgroundColor3 = BUTTON_COLOR
 
 -- Логика входа
 local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
@@ -1072,3 +1063,17 @@ Workspace.DescendantAdded:Connect(protectCall(function(obj)
         createESPObject(obj)
     end
 end))
+
+-- Инициализация ESP для всех игроков
+for _,plr in ipairs(Players:GetPlayers()) do
+    createESP(plr)
+end
+
+-- Инициализация ESP объектов если включено
+if ESP_Objects_Enabled then
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+            createESPObject(obj)
+        end
+    end
+end

@@ -7,6 +7,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
+local DataStoreService = game:GetService("DataStoreService")
 
 -- Ожидаем загрузку игрока
 local player = Players.LocalPlayer
@@ -19,39 +20,82 @@ local MAIN_COLOR = Color3.fromRGB(0, 0, 0)
 local MAIN_TRANSPARENCY = 0.5
 local BUTTON_COLOR = Color3.fromRGB(40, 40, 40)
 local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local ERROR_COLOR = Color3.fromRGB(255, 80, 80)
+local SUCCESS_COLOR = Color3.fromRGB(100, 255, 100)
 
--- Система ключей
+-- Улучшенная система ключей
 local KEY_SYSTEM = {
     ActiveKey = nil,
     KeyExpireTime = nil,
     ValidKeys = {
-        ["FLUX-1MIN"] = 60,       -- 1 минута
-        ["FLUX-3MIN"] = 180,       -- 3 минуты
-        ["FLUX-PERM"] = -1         -- Перманентный ключ
-    }
+        ["FLUX-TEST"] = 60,          -- 1 минута (тестовый)
+        ["FLUX-1HOUR"] = 3600,       -- 1 час
+        ["FLUX-3HOUR"] = 10800,      -- 3 часа
+        ["FLUX-1DAY"] = 86400,       -- 1 день
+        ["FLUX-1WEEK"] = 604800,     -- 1 неделя
+        ["FLUX-1MONTH"] = 2592000,   -- 1 месяц (30 дней)
+        ["FLUX-PERM"] = -1           -- Перманентный доступ
+    },
+    KeyStore = DataStoreService:GetDataStore("FluxClientKeysV3")
 }
 
--- Функция для проверки ключа
-local function validateKey(key)
-    return KEY_SYSTEM.ValidKeys[key] ~= nil
-end
-
--- Функция для активации ключа
-local function activateKey(key)
-    if validateKey(key) then
-        KEY_SYSTEM.ActiveKey = key
-        if KEY_SYSTEM.ValidKeys[key] > 0 then
-            KEY_SYSTEM.KeyExpireTime = os.time() + KEY_SYSTEM.ValidKeys[key]
-        else
-            KEY_SYSTEM.KeyExpireTime = nil -- Перманентный ключ
+-- Функция для создания объектов
+local function new(className, props)
+    local obj = Instance.new(className)
+    if props then
+        for k,v in pairs(props) do
+            obj[k] = v
         end
-        return true
     end
-    return false
+    return obj
 end
 
--- Функция для проверки времени ключа
+-- Функция проверки и активации ключа
+local function validateAndActivateKey(inputKey)
+    if not inputKey or type(inputKey) ~= "string" then 
+        return false, "Неверный формат ключа" 
+    end
+    
+    local cleanedKey = inputKey:upper():gsub("%s+", "")
+    
+    for validKey, duration in pairs(KEY_SYSTEM.ValidKeys) do
+        if cleanedKey == validKey then
+            KEY_SYSTEM.ActiveKey = validKey
+            if duration > 0 then
+                KEY_SYSTEM.KeyExpireTime = os.time() + duration
+            else
+                KEY_SYSTEM.KeyExpireTime = nil
+            end
+            
+            -- Сохраняем ключ
+            pcall(function()
+                KEY_SYSTEM.KeyStore:SetAsync(player.UserId, {
+                    key = KEY_SYSTEM.ActiveKey,
+                    expireTime = KEY_SYSTEM.KeyExpireTime
+                })
+            end)
+            
+            return true, "Ключ активирован!"
+        end
+    end
+    
+    return false, "Неверный ключ. Доступные: FLUX-TEST, FLUX-1HOUR, FLUX-1DAY, FLUX-PERM"
+end
+
+-- Функция проверки времени ключа
 local function checkKeyTime()
+    -- Пытаемся загрузить сохраненный ключ
+    if not KEY_SYSTEM.ActiveKey then
+        local success, data = pcall(function()
+            return KEY_SYSTEM.KeyStore:GetAsync(player.UserId)
+        end)
+        
+        if success and data then
+            KEY_SYSTEM.ActiveKey = data.key
+            KEY_SYSTEM.KeyExpireTime = data.expireTime
+        end
+    end
+
     if KEY_SYSTEM.ActiveKey then
         if KEY_SYSTEM.KeyExpireTime then
             if os.time() >= KEY_SYSTEM.KeyExpireTime then
@@ -66,17 +110,6 @@ local function checkKeyTime()
     return false
 end
 
--- Функция для создания объектов
-local function new(className, props)
-    local obj = Instance.new(className)
-    if props then
-        for k,v in pairs(props) do
-            obj[k] = v
-        end
-    end
-    return obj
-end
-
 -- Создаем основное GUI
 local screenGui = new("ScreenGui", {
     Name = "FluxClientGUI_"..HttpService:GenerateGUID(false),
@@ -87,7 +120,7 @@ local screenGui = new("ScreenGui", {
 -- Watermark
 local watermark = new("Frame", {
     Parent = screenGui,
-    Size = UDim2.new(0, 160, 0, 30),
+    Size = UDim2.new(0, 200, 0, 30),
     Position = UDim2.new(0, 10, 0, 10),
     BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = 0.3,
@@ -98,7 +131,7 @@ local watermarkText = new("TextLabel", {
     Parent = watermark,
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    Text = "Flux Client",
+    Text = "Flux Client [Введите ключ]",
     Font = Enum.Font.SourceSansSemibold,
     TextSize = 16,
     TextColor3 = TEXT_COLOR,
@@ -109,8 +142,8 @@ local watermarkText = new("TextLabel", {
 -- Окно логина
 local loginFrame = new("Frame", {
     Parent = screenGui,
-    Size = UDim2.new(0, 300, 0, 160),
-    Position = UDim2.new(0.5, -150, 0.5, -80),
+    Size = UDim2.new(0, 320, 0, 180),
+    Position = UDim2.new(0.5, -160, 0.5, -90),
     BackgroundColor3 = MAIN_COLOR,
     BackgroundTransparency = MAIN_TRANSPARENCY,
     ZIndex = 20,
@@ -123,7 +156,7 @@ new("TextLabel", {
     Position = UDim2.new(0, 12, 0, 8),
     Size = UDim2.new(1, -24, 0, 24),
     BackgroundTransparency = 1,
-    Text = "Flux Client",
+    Text = "Flux Client - Активация",
     Font = Enum.Font.SourceSansSemibold,
     TextSize = 18,
     TextColor3 = TEXT_COLOR,
@@ -132,9 +165,9 @@ new("TextLabel", {
 
 local passwordBox = new("TextBox", {
     Parent = loginFrame,
-    Size = UDim2.new(0.85, 0, 0, 28),
-    Position = UDim2.new(0.075, 0, 0.4, 0),
-    PlaceholderText = "Введите ключ...",
+    Size = UDim2.new(0.85, 0, 0, 32),
+    Position = UDim2.new(0.075, 0, 0.35, 0),
+    PlaceholderText = "Введите ваш ключ...",
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
@@ -147,10 +180,10 @@ new("UICorner", {Parent = passwordBox, CornerRadius = UDim.new(0,6)})
 
 local loginButton = new("TextButton", {
     Parent = loginFrame,
-    Size = UDim2.new(0.5, 0, 0, 28),
-    Position = UDim2.new(0.25, 0, 0.7, 0),
+    Size = UDim2.new(0.5, 0, 0, 32),
+    Position = UDim2.new(0.25, 0, 0.65, 0),
     BackgroundColor3 = BUTTON_COLOR,
-    Text = "Войти",
+    Text = "Активировать",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
     TextColor3 = TEXT_COLOR,
@@ -165,7 +198,7 @@ local loginError = new("TextLabel", {
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 14,
-    TextColor3 = Color3.fromRGB(255, 0, 0),
+    TextColor3 = ERROR_COLOR,
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
@@ -222,22 +255,23 @@ local btnClose = new("TextButton", {
 -- Таймер ключа
 local keyTimerLabel = new("TextLabel", {
     Parent = window,
-    Size = UDim2.new(1, 0, 0, 20),
+    Size = UDim2.new(1, 0, 0, 24),
     Position = UDim2.new(0, 0, 0, 5),
     BackgroundTransparency = 1,
     Text = "",
     Font = Enum.Font.SourceSansSemibold,
     TextSize = 16,
-    TextColor3 = TEXT_COLOR,
+    TextColor3 = SUCCESS_COLOR,
     TextXAlignment = Enum.TextXAlignment.Center,
     Visible = false,
 })
 
+-- Поисковая строка
 local searchBox = new("TextBox", {
     Parent = window,
     Size = UDim2.new(0.8, 0, 0, 28),
     Position = UDim2.new(0.1, 0, 0, 45),
-    PlaceholderText = "Search...",
+    PlaceholderText = "Поиск функций...",
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
@@ -975,23 +1009,38 @@ local function updateKeyTimer()
             if KEY_SYSTEM.KeyExpireTime then
                 local remaining = KEY_SYSTEM.KeyExpireTime - os.time()
                 if remaining > 0 then
+                    local days = math.floor(remaining / 86400)
+                    remaining = remaining % 86400
+                    local hours = math.floor(remaining / 3600)
+                    remaining = remaining % 3600
                     local minutes = math.floor(remaining / 60)
                     local seconds = remaining % 60
-                    keyTimerLabel.Text = string.format("Key: %s | Time: %02d:%02d", 
-                        KEY_SYSTEM.ActiveKey, minutes, seconds)
+                    
+                    local timeText
+                    if days > 0 then
+                        timeText = string.format("%dд %02d:%02d:%02d", days, hours, minutes, seconds)
+                    elseif hours > 0 then
+                        timeText = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+                    else
+                        timeText = string.format("%02d:%02d", minutes, seconds)
+                    end
+                    
+                    keyTimerLabel.Text = string.format("Ключ: %s | Осталось: %s", 
+                        KEY_SYSTEM.ActiveKey, timeText)
                     keyTimerLabel.Visible = true
                 else
-                    keyTimerLabel.Text = "Key expired!"
+                    keyTimerLabel.Text = "Ключ истек! Введите новый."
                     task.wait(3)
                     KEY_SYSTEM.ActiveKey = nil
                     KEY_SYSTEM.KeyExpireTime = nil
+                    pcall(function() KEY_SYSTEM.KeyStore:SetAsync(player.UserId, nil) end)
                     floatBtn.Visible = false
                     window.Visible = false
                     loginFrame.Visible = true
                     keyTimerLabel.Visible = false
                 end
             else
-                keyTimerLabel.Text = "Key: "..KEY_SYSTEM.ActiveKey.." | Permanent"
+                keyTimerLabel.Text = "Ключ: "..KEY_SYSTEM.ActiveKey.." | PERMANENT"
                 keyTimerLabel.Visible = true
             end
         else
@@ -1000,27 +1049,28 @@ local function updateKeyTimer()
     end
 end
 
-task.spawn(updateKeyTimer)
-
-RunService.Heartbeat:Connect(function()
-    updatePlayerList()
-end)
-
 -- Логика входа
 loginButton.MouseButton1Click:Connect(function()
-    if validateKey(passwordBox.Text) then
-        if activateKey(passwordBox.Text) then
+    local inputKey = passwordBox.Text
+    if inputKey and inputKey ~= "" then
+        local success, message = validateAndActivateKey(inputKey)
+        
+        if success then
             floatBtn.Visible = true
             loginFrame.Visible = false
             loginError.Text = ""
             passwordBox.Text = ""
+            
+            -- Показываем сообщение в watermark
+            watermarkText.Text = message
+            task.delay(5, function()
+                watermarkText.Text = "Flux Client ["..KEY_SYSTEM.ActiveKey.."]"
+            end)
         else
-            loginError.Text = "Key activation failed!"
-            loginError.TextColor3 = Color3.fromRGB(255, 0, 0)
+            loginError.Text = message
         end
     else
-        loginError.Text = "Invalid key!"
-        loginError.TextColor3 = Color3.fromRGB(255, 0, 0)
+        loginError.Text = "Пожалуйста, введите ключ!"
     end
 end)
 
@@ -1031,8 +1081,7 @@ btn.MouseButton1Click:Connect(function()
         floatBtn.Visible = false
         window.Visible = false
         loginFrame.Visible = true
-        loginError.Text = "Key expired! Please enter a new key."
-        loginError.TextColor3 = Color3.fromRGB(255, 0, 0)
+        loginError.Text = "Ключ истек! Введите новый."
     end
 end)
 
@@ -1040,6 +1089,25 @@ btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
 end)
 
+-- Проверка ключа при запуске
+if checkKeyTime() then
+    floatBtn.Visible = true
+    loginFrame.Visible = false
+    watermarkText.Text = "Flux Client ["..KEY_SYSTEM.ActiveKey.."]"
+else
+    floatBtn.Visible = false
+    loginFrame.Visible = true
+end
+
+-- Запускаем таймер
+task.spawn(updateKeyTimer)
+
+-- Обновляем список игроков
+RunService.Heartbeat:Connect(function()
+    updatePlayerList()
+end)
+
+-- Обработка новых игроков
 Players.PlayerAdded:Connect(function(plr)
     createESP(plr)
     plr.CharacterAdded:Connect(function()
@@ -1061,17 +1129,9 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
+-- Обработка новых объектов
 Workspace.DescendantAdded:Connect(function(obj)
     if ESP_Objects_Enabled and obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
         createESPObject(obj)
     end
 end)
-
--- Проверка ключа при запуске
-if checkKeyTime() then
-    floatBtn.Visible = true
-    loginFrame.Visible = false
-else
-    floatBtn.Visible = false
-    loginFrame.Visible = true
-end

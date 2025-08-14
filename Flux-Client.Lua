@@ -188,7 +188,7 @@ new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 -- Переменные функций
 local ESP_Enabled = false
 local ESP_Objects_Enabled = false
-local Tracer_Enabled = true -- Всегда включен
+local Tracer_Enabled = false
 local Hitbox_Enabled = false
 local InfinityJump_Enabled = false
 local Speed_Enabled = false
@@ -364,7 +364,6 @@ end
 local function createESPObject(obj)
     if not obj:IsA("BasePart") then return end
     
-    -- Box для объекта
     local box = Drawing.new("Square")
     box.Color = Color3.new(0, 0, 0) -- Черный цвет
     box.Thickness = 2
@@ -372,28 +371,18 @@ local function createESPObject(obj)
     box.Filled = false
     box.Visible = false
     
-    -- Tracer для объекта (всегда включен)
+    -- Трассировка для объектов
     local tracer = Drawing.new("Line")
     tracer.Color = Color3.new(0, 0, 0) -- Черный цвет
     tracer.Thickness = 1
     tracer.Transparency = 1
     tracer.Visible = false
     
-    -- Текст с ID объекта
-    local idText = Drawing.new("Text")
-    idText.Text = tostring(obj:GetDebugId())
-    idText.Color = Color3.new(1, 1, 1) -- Белый цвет
-    idText.Size = 14
-    idText.Outline = true
-    idText.Transparency = 1
-    idText.Visible = false
-
     local conn
     conn = RunService.RenderStepped:Connect(function()
         if not obj or not obj.Parent then
             box:Remove()
             tracer:Remove()
-            idText:Remove()
             conn:Disconnect()
             ESP_Objects_Connections[obj] = nil
             return
@@ -402,22 +391,17 @@ local function createESPObject(obj)
         local pos, vis = camera:WorldToViewportPoint(obj.Position)
         if vis and ESP_Objects_Enabled then
             -- Box
-            box.Size = Vector2.new(30, 30)
-            box.Position = Vector2.new(pos.X - 15, pos.Y - 15)
+            box.Size = Vector2.new(20, 20)
+            box.Position = Vector2.new(pos.X - 10, pos.Y - 10)
             box.Visible = true
             
-            -- Tracer (всегда включен)
+            -- Tracer
             tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
             tracer.To = Vector2.new(pos.X, pos.Y)
             tracer.Visible = true
-            
-            -- ID текст
-            idText.Position = Vector2.new(pos.X, pos.Y + 20)
-            idText.Visible = true
         else
             box.Visible = false
             tracer.Visible = false
-            idText.Visible = false
         end
     end)
     
@@ -426,7 +410,6 @@ local function createESPObject(obj)
     obj.AncestryChanged:Connect(function()
         box:Remove()
         tracer:Remove()
-        idText:Remove()
         conn:Disconnect()
         ESP_Objects_Connections[obj] = nil
     end)
@@ -437,24 +420,24 @@ local function createESP(plr)
     if plr == player then return end
     
     local box = Drawing.new("Square")
-    box.Color = Color3.new(1,1,1)
+    box.Color = Color3.new(1,1,1) -- Белая рамка
     box.Thickness = 1.5
     box.Transparency = 1
     box.Filled = false
     
     local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(1,1,1)
+    tracer.Color = Color3.new(1,1,1) -- Белая трассировка
     tracer.Thickness = 1
     tracer.Transparency = 1
     
     local healthBar = Drawing.new("Line")
-    healthBar.Color = Color3.new(0,0,0) -- Черный цвет
+    healthBar.Color = Color3.new(0,0,0) -- Черная полоса здоровья
     healthBar.Thickness = 2
     healthBar.Transparency = 1
     
     local nameTag = Drawing.new("Text")
     nameTag.Text = plr.Name
-    nameTag.Color = Color3.new(1,1,1) -- Белый цвет
+    nameTag.Color = Color3.new(1,1,1) -- Белый текст
     nameTag.Size = 14
     nameTag.Center = true
     nameTag.Outline = true
@@ -491,10 +474,14 @@ local function createESP(plr)
                     box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
                     box.Visible = true
                     
-                    -- Tracer (всегда включен)
-                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                    tracer.To = Vector2.new(pos.X, pos.Y)
-                    tracer.Visible = true
+                    -- Tracer
+                    if Tracer_Enabled then
+                        tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(pos.X, pos.Y)
+                        tracer.Visible = true
+                    else
+                        tracer.Visible = false
+                    end
                     
                     -- Health bar (черная)
                     local healthPercent = humanoid.Health / humanoid.MaxHealth
@@ -508,7 +495,7 @@ local function createESP(plr)
                     nameTag.Visible = true
                 else
                     box.Visible = false
-                    tracer.Visible = true -- Tracer всегда виден
+                    tracer.Visible = false
                     healthBar.Visible = false
                     nameTag.Visible = false
                 end
@@ -552,7 +539,7 @@ if ESP_Objects_Enabled then
     end
 end
 
--- Hitbox Expand (увеличенные размеры)
+-- Hitbox Expand
 local function expandHitboxes()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -567,10 +554,9 @@ local function expandHitboxes()
                         Head_CanCollide = head.CanCollide
                     }
                 end
-                -- Увеличенные размеры хитбоксов
-                hrp.Size = OriginalSizes[plr].HRP_Size * 5 -- Увеличено в 5 раз
+                hrp.Size = OriginalSizes[plr].HRP_Size * 3
                 hrp.CanCollide = false
-                head.Size = OriginalSizes[plr].Head_Size * 15 -- Увеличено в 15 раз
+                head.Size = OriginalSizes[plr].Head_Size * 10
                 head.CanCollide = false
             end
         end
@@ -798,13 +784,11 @@ createToggleButton("Spider", 0.05, currentY, function()
     return Spider_Enabled
 end)
 
--- Tracer (закомментирована, так как теперь всегда включен)
---[[
+-- Tracer
 createToggleButton("Tracer", 0.55, currentY, function()
     Tracer_Enabled = not Tracer_Enabled
     return Tracer_Enabled
 end)
-]]
 
 currentY = currentY + btnSpacingY
 

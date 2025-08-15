@@ -1,45 +1,15 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local GuiService = game:GetService("GuiService")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
-local DataStoreService = game:GetService("DataStoreService")
+local GuiService = game:GetService("GuiService")
 
--- Ожидаем загрузку игрока
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local camera = Workspace.CurrentCamera
-local mouse = player:GetMouse()
 
--- Цветовая схема
-local MAIN_COLOR = Color3.fromRGB(0, 0, 0)
-local MAIN_TRANSPARENCY = 0.5
-local BUTTON_COLOR = Color3.fromRGB(40, 40, 40)
-local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
-local ERROR_COLOR = Color3.fromRGB(255, 80, 80)
-local SUCCESS_COLOR = Color3.fromRGB(100, 255, 100)
-
--- Улучшенная система ключей
-local KEY_SYSTEM = {
-    ActiveKey = nil,
-    KeyExpireTime = nil,
-    ValidKeys = {
-        ["FLUX-TEST"] = 60,          -- 1 минута (тестовый)
-        ["FLUX-1HOUR"] = 3600,       -- 1 час
-        ["FLUX-3HOUR"] = 10800,      -- 3 часа
-        ["FLUX-1DAY"] = 86400,       -- 1 день
-        ["FLUX-1WEEK"] = 604800,     -- 1 неделя
-        ["FLUX-1MONTH"] = 2592000,   -- 1 месяц (30 дней)
-        ["FLUX-PERM"] = -1           -- Перманентный доступ
-    },
-    KeyStore = DataStoreService:GetDataStore("FluxClientKeysV3")
-}
-
--- Функция для создания объектов
+-- Utility function
 local function new(className, props)
     local obj = Instance.new(className)
     if props then
@@ -50,170 +20,24 @@ local function new(className, props)
     return obj
 end
 
--- Функция проверки и активации ключа
-local function validateAndActivateKey(inputKey)
-    if not inputKey or type(inputKey) ~= "string" then 
-        return false, "Неверный формат ключа" 
-    end
-    
-    local cleanedKey = inputKey:upper():gsub("%s+", "")
-    
-    for validKey, duration in pairs(KEY_SYSTEM.ValidKeys) do
-        if cleanedKey == validKey then
-            KEY_SYSTEM.ActiveKey = validKey
-            if duration > 0 then
-                KEY_SYSTEM.KeyExpireTime = os.time() + duration
-            else
-                KEY_SYSTEM.KeyExpireTime = nil
-            end
-            
-            -- Сохраняем ключ
-            pcall(function()
-                KEY_SYSTEM.KeyStore:SetAsync(player.UserId, {
-                    key = KEY_SYSTEM.ActiveKey,
-                    expireTime = KEY_SYSTEM.KeyExpireTime
-                })
-            end)
-            
-            return true, "Ключ активирован!"
-        end
-    end
-    
-    return false, "Неверный ключ. Доступные: FLUX-TEST, FLUX-1HOUR, FLUX-1DAY, FLUX-PERM"
-end
-
--- Функция проверки времени ключа
-local function checkKeyTime()
-    -- Пытаемся загрузить сохраненный ключ
-    if not KEY_SYSTEM.ActiveKey then
-        local success, data = pcall(function()
-            return KEY_SYSTEM.KeyStore:GetAsync(player.UserId)
-        end)
-        
-        if success and data then
-            KEY_SYSTEM.ActiveKey = data.key
-            KEY_SYSTEM.KeyExpireTime = data.expireTime
-        end
-    end
-
-    if KEY_SYSTEM.ActiveKey then
-        if KEY_SYSTEM.KeyExpireTime then
-            if os.time() >= KEY_SYSTEM.KeyExpireTime then
-                KEY_SYSTEM.ActiveKey = nil
-                KEY_SYSTEM.KeyExpireTime = nil
-                return false
-            end
-            return true
-        end
-        return true -- Перманентный ключ
-    end
-    return false
-end
-
--- Создаем основное GUI
+-- ScreenGui
 local screenGui = new("ScreenGui", {
-    Name = "FluxClientGUI_"..HttpService:GenerateGUID(false),
+    Name = "BloodXGUI",
     ResetOnSpawn = false,
     Parent = playerGui,
 })
 
--- Watermark
-local watermark = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 200, 0, 30),
-    Position = UDim2.new(0, 10, 0, 10),
-    BackgroundColor3 = MAIN_COLOR,
-    BackgroundTransparency = 0.3,
-})
-new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
-
-local watermarkText = new("TextLabel", {
-    Parent = watermark,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Flux Client [Введите ключ]",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    TextYAlignment = Enum.TextYAlignment.Center,
-})
-
--- Окно логина
-local loginFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 320, 0, 180),
-    Position = UDim2.new(0.5, -160, 0.5, -90),
-    BackgroundColor3 = MAIN_COLOR,
-    BackgroundTransparency = MAIN_TRANSPARENCY,
-    ZIndex = 20,
-})
-new("UICorner", {Parent = loginFrame, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = loginFrame, Color = MAIN_COLOR, Transparency = 0.6})
-
-new("TextLabel", {
-    Parent = loginFrame,
-    Position = UDim2.new(0, 12, 0, 8),
-    Size = UDim2.new(1, -24, 0, 24),
-    BackgroundTransparency = 1,
-    Text = "Flux Client - Активация",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 18,
-    TextColor3 = TEXT_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
-local passwordBox = new("TextBox", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.85, 0, 0, 32),
-    Position = UDim2.new(0.075, 0, 0.35, 0),
-    PlaceholderText = "Введите ваш ключ...",
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-    BackgroundColor3 = BUTTON_COLOR,
-    BackgroundTransparency = 0.1,
-    ClearTextOnFocus = false,
-})
-new("UICorner", {Parent = passwordBox, CornerRadius = UDim.new(0,6)})
-
-local loginButton = new("TextButton", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.5, 0, 0, 32),
-    Position = UDim2.new(0.25, 0, 0.65, 0),
-    BackgroundColor3 = BUTTON_COLOR,
-    Text = "Активировать",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-})
-new("UICorner", {Parent = loginButton, CornerRadius = UDim.new(0,6)})
-
-local loginError = new("TextLabel", {
-    Parent = loginFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0.9, 0),
-    BackgroundTransparency = 1,
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = ERROR_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
--- Главное меню
+-- Floating button
 local floatBtn = new("Frame", {
     Name = "FloatButton",
     Parent = screenGui,
     Size = UDim2.new(0, 60, 0, 60),
     Position = UDim2.new(0.02, 0, 0.5, -30),
-    BackgroundColor3 = MAIN_COLOR,
+    BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.25,
     ZIndex = 10,
-    Visible = false,
 })
-new("UICorner", {Parent = floatBtn, CornerRadius = UDim.new(0,12)})
+new("UICorner",{Parent = floatBtn, CornerRadius = UDim.new(0,12)})
 
 local btn = new("TextButton", {
     Parent = floatBtn,
@@ -222,916 +46,352 @@ local btn = new("TextButton", {
     Text = "≡",
     Font = Enum.Font.SourceSansBold,
     TextSize = 28,
-    TextColor3 = TEXT_COLOR,
+    TextColor3 = Color3.fromRGB(255,255,255),
     AutoButtonColor = false,
     ZIndex = 11,
 })
 
+-- Main menu window
 local window = new("Frame", {
     Name = "MainWindow",
     Parent = screenGui,
     Size = UDim2.new(0, 520, 0, 340),
     Position = UDim2.new(0.5, -260, 0.5, -170),
     Visible = false,
-    BackgroundColor3 = MAIN_COLOR,
-    BackgroundTransparency = MAIN_TRANSPARENCY,
+    BackgroundColor3 = Color3.fromRGB(20,20,20),
+    BackgroundTransparency = 0.2,
     ZIndex = 9,
 })
-new("UICorner", {Parent = window, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = window, Color = MAIN_COLOR, Transparency = 0.6})
+new("UICorner",{Parent = window, CornerRadius = UDim.new(0,10)})
+new("UIStroke",{Parent = window, Color = Color3.fromRGB(50,50,50), Thickness = 2})
 
-local btnClose = new("TextButton", {
+-- Header
+local header = new("Frame", {
     Parent = window,
+    Size = UDim2.new(1,0,0,36),
+    BackgroundTransparency = 1,
+})
+
+local title = new("TextLabel", {
+    Parent = header,
+    Position = UDim2.new(0,12,0,0),
+    Size = UDim2.new(1,-120,1,0),
+    BackgroundTransparency = 1,
+    Text = "BloodX",
+    Font = Enum.Font.SourceSansSemibold,
+    TextSize = 18,
+    TextColor3 = Color3.fromRGB(255,255,255),
+    TextXAlignment = Enum.TextXAlignment.Left,
+})
+
+-- Color pulse animation
+local pulseSpeed = 2
+local pulseConnection
+pulseConnection = RunService.Heartbeat:Connect(function(dt)
+    local time = os.clock() * pulseSpeed
+    local lerpValue = (math.sin(time) + 1) / 2
+    title.TextColor3 = Color3.new(lerpValue, lerpValue, lerpValue)
+end)
+
+-- Close button
+local btnClose = new("TextButton", {
+    Parent = header,
     Size = UDim2.new(0,28,0,28),
     Position = UDim2.new(1,-36,0,4),
     BackgroundTransparency = 1,
     Text = "×",
     Font = Enum.Font.SourceSansBold,
     TextSize = 18,
-    TextColor3 = TEXT_COLOR,
+    TextColor3 = Color3.fromRGB(255,255,255),
     ZIndex = 12,
 })
 
--- Таймер ключа
-local keyTimerLabel = new("TextLabel", {
-    Parent = window,
-    Size = UDim2.new(1, 0, 0, 24),
-    Position = UDim2.new(0, 0, 0, 5),
-    BackgroundTransparency = 1,
-    Text = "",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 16,
-    TextColor3 = SUCCESS_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    Visible = false,
-})
-
--- Поисковая строка
-local searchBox = new("TextBox", {
-    Parent = window,
-    Size = UDim2.new(0.8, 0, 0, 28),
-    Position = UDim2.new(0.1, 0, 0, 45),
-    PlaceholderText = "Поиск функций...",
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-    BackgroundColor3 = BUTTON_COLOR,
-    BackgroundTransparency = 0.1,
-})
-new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
-
--- Создаем кнопки функций
-local buttons = {}
-local btnSpacingX = 0.5
-local btnSpacingY = 0.12
-local currentY = 0.15
-
-local function createToggleButton(text, xPos, yPos, callback)
-    local btn = new("TextButton", {
-        Parent = window,
-        Size = UDim2.new(0.4, 0, 0, 28),
-        Position = UDim2.new(xPos, 0, yPos, 0),
-        BackgroundColor3 = BUTTON_COLOR,
-        Text = text,
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = TEXT_COLOR,
-    })
-    new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,6)})
-    
-    table.insert(buttons, btn)
-    
-    btn.MouseButton1Click:Connect(function()
-        local newState = callback()
-        btn.BackgroundColor3 = newState and Color3.fromRGB(80, 80, 80) or BUTTON_COLOR
-    end)
-    
-    return btn
-end
-
--- Переменные функций
-local ESP_Enabled = false
-local ESP_Objects_Enabled = false
-local Tracer_Enabled = false
-local Hitbox_Enabled = false
-local InfinityJump_Enabled = false
-local Speed_Enabled = false
-local Wallhack_Enabled = false
-local NightVision_Enabled = false
-local NoFall_Enabled = false
-local AntiKnockback_Enabled = false
-local Spider_Enabled = false
-local TriggerBot_Enabled = false
-local Aimbot_Enabled = false
-local SilentAim_Enabled = false
-local WalkSpeed_Value = 40
-local JumpPower_Value = 50
-local ESP_Connections = {}
-local ESP_Objects_Connections = {}
-local OriginalSizes = {}
-
--- Функции защиты от античита
-local function isPlayerAlive(plr)
-    if not plr.Character then return false end
-    local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0
-end
-
-local function isCharacterValid(char)
-    return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head")
-end
-
--- Night Vision
-local function setNightVision(state)
-    if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    else
-        Lighting.Ambient = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Top = Color3.new(0, 0, 0)
-    end
-end
-
--- No Fall
-local function noFall()
-    if NoFall_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-            humanoid:ChangeState("Running")
-        end
-    end
-end
-
--- Anti Knockback
-local function antiKnockback()
-    if AntiKnockback_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        end
-    end
-end
-
--- Spider
-local function spider()
-    if Spider_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterDescendantsInstances = {player.Character}
-            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-            
-            local rayOrigin = player.Character.HumanoidRootPart.Position
-            local rayDirection = Vector3.new(0, -5, 0)
-            local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-            
-            if raycastResult then
-                humanoid.JumpPower = JumpPower_Value
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end
-    end
-end
-
--- Trigger Bot (исправленный)
-local function triggerBot()
-    if TriggerBot_Enabled and player.Character and isPlayerAlive(player) then
-        local closestPlayer, closestDistance = nil, math.huge
-        local myHead = player.Character:FindFirstChild("Head")
-        if not myHead then return end
-        
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
-                local targetHead = plr.Character:FindFirstChild("Head")
-                if targetHead then
-                    -- Проверяем, находится ли игрок в поле зрения
-                    local screenPoint = camera:WorldToViewportPoint(targetHead.Position)
-                    if screenPoint.Z > 0 then -- Z > 0 значит перед камерой
-                        local mousePos = Vector2.new(mouse.X, mouse.Y)
-                        local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
-                        local distance = (mousePos - targetPos).Magnitude
-                        
-                        -- Проверяем, находится ли цель в пределах 30 пикселей от курсора
-                        if distance < 30 and distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = plr
-                        end
-                    end
-                end
-            end
-        end
-        
-        if closestPlayer and closestPlayer.Character then
-            local humanoid = closestPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                -- Имитируем нажатие левой кнопки мыши
-                mouse1click()
-                -- Небольшая задержка для предотвращения спама
-                task.wait(0.1)
-            end
-        end
-    end
-end
-
--- Aimbot (улучшенный для 1-го и 3-го лица)
-local function aimAt(target)
-    if not target or not target:IsDescendantOf(Workspace) then return end
-    
-    local character = player.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    -- Определяем, в каком режиме находится игрок (1-е или 3-е лицо)
-    local isFirstPerson = false
-    if player:FindFirstChild("PlayerScripts") then
-        local camModule = require(player.PlayerScripts:WaitForChild("PlayerModule"))
-        local camController = camModule:GetCameras().currentCamera
-        isFirstPerson = camController:GetCameraType().Value == Enum.CameraType.FirstPerson
-    end
-    
-    local targetPosition = target.Position
-    local camera = Workspace.CurrentCamera
-    
-    if isFirstPerson then
-        -- В режиме от первого лица плавно меняем направление взгляда
-        local lookAt = (targetPosition - camera.CFrame.Position).Unit
-        local current = camera.CFrame.LookVector
-        local smooth = 0.5 -- Коэффициент плавности (0-1)
-        local new = current:Lerp(lookAt, smooth)
-        camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + new)
-    else
-        -- В режиме от третьего лица плавно меняем позицию камеры
-        local offset = camera.CFrame.Position - humanoidRootPart.Position
-        local newPosition = targetPosition + offset
-        local smooth = 0.5 -- Коэффициент плавности (0-1)
-        local currentPosition = camera.CFrame.Position
-        local interpolatedPosition = currentPosition:Lerp(newPosition, smooth)
-        camera.CFrame = CFrame.new(interpolatedPosition, targetPosition)
-    end
-end
-
--- Silent Aim (перенаправление пуль)
-local function silentAimHook()
-    if not SilentAim_Enabled or not player.Character then return end
-    
-    local closestPlayer, closestDistance = nil, math.huge
-    local myHead = player.Character:FindFirstChild("Head")
-    if not myHead then return end
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
-            local targetHead = plr.Character:FindFirstChild("Head")
-            if targetHead then
-                local distance = (targetHead.Position - myHead.Position).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestPlayer = plr
-                end
-            end
-        end
-    end
-    
-    if closestPlayer and closestPlayer.Character then
-        local targetHead = closestPlayer.Character:FindFirstChild("Head")
-        if targetHead then
-            -- Возвращаем позицию головы ближайшего игрока
-            return targetHead.Position
-        end
-    end
-    
-    -- Если никого нет, возвращаем исходную позицию
-    return nil
-end
-
--- ESP для всех объектов
-local function createESPObject(obj)
-    if not obj:IsA("BasePart") then return end
-    
-    local box = Drawing.new("Square")
-    box.Color = Color3.new(1, 0, 0)
-    box.Thickness = 1
-    box.Transparency = 1
-    box.Filled = false
-    box.Visible = false
-    
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if not obj or not obj.Parent then
-            box:Remove()
-            conn:Disconnect()
-            ESP_Objects_Connections[obj] = nil
-            return
-        end
-        
-        local pos, vis = camera:WorldToViewportPoint(obj.Position)
-        if vis and ESP_Objects_Enabled then
-            box.Size = Vector2.new(20, 20)
-            box.Position = Vector2.new(pos.X - 10, pos.Y - 10)
-            box.Visible = true
-        else
-            box.Visible = false
-        end
-    end)
-    
-    ESP_Objects_Connections[obj] = conn
-    
-    obj.AncestryChanged:Connect(function()
-        box:Remove()
-        conn:Disconnect()
-        ESP_Objects_Connections[obj] = nil
-    end)
-end
-
--- ESP для игроков
-local function createESP(plr)
-    if plr == player then return end
-    
-    local box = Drawing.new("Square")
-    box.Color = Color3.new(1,1,1)
-    box.Thickness = 1.5
-    box.Transparency = 1
-    box.Filled = false
-    
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(1,1,1)
-    tracer.Thickness = 1
-    tracer.Transparency = 1
-    
-    local healthBar = Drawing.new("Line")
-    healthBar.Color = Color3.new(0,1,0)
-    healthBar.Thickness = 2
-    healthBar.Transparency = 1
-    
-    local nameTag = Drawing.new("Text")
-    nameTag.Text = plr.Name
-    nameTag.Color = Color3.new(1,1,1)
-    nameTag.Size = 14
-    nameTag.Center = true
-    nameTag.Outline = true
-    nameTag.Transparency = 1
-
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if not plr or not plr.Parent or not plr.Character then
-            box:Remove()
-            tracer:Remove()
-            healthBar:Remove()
-            nameTag:Remove()
-            conn:Disconnect()
-            ESP_Connections[plr] = nil
-            return
-        end
-        
-        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-        local head = plr.Character:FindFirstChild("Head")
-        local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-        
-        if hrp and head and humanoid then
-            local pos, vis = camera:WorldToViewportPoint(hrp.Position)
-            
-            if vis then
-                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-                local height = footPos.Y - headPos.Y
-                local width = height / 2
-                
-                if ESP_Enabled then
-                    -- Box
-                    box.Size = Vector2.new(width, height)
-                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)
-                    box.Visible = true
-                    
-                    -- Tracer
-                    if Tracer_Enabled then
-                        tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                        tracer.To = Vector2.new(pos.X, pos.Y)
-                        tracer.Visible = true
-                    else
-                        tracer.Visible = false
-                    end
-                    
-                    -- Health bar
-                    local healthPercent = humanoid.Health / humanoid.MaxHealth
-                    local barHeight = height * healthPercent
-                    healthBar.From = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height - barHeight)
-                    healthBar.To = Vector2.new(headPos.X - width/2 - 5, headPos.Y + height)
-                    healthBar.Visible = true
-                    
-                    -- Name tag
-                    nameTag.Position = Vector2.new(headPos.X, headPos.Y - 20)
-                    nameTag.Visible = true
-                else
-                    box.Visible = false
-                    tracer.Visible = false
-                    healthBar.Visible = false
-                    nameTag.Visible = false
-                end
-            else
-                box.Visible = false
-                tracer.Visible = false
-                healthBar.Visible = false
-                nameTag.Visible = false
-            end
-        else
-            box.Visible = false
-            tracer.Visible = false
-            healthBar.Visible = false
-            nameTag.Visible = false
-        end
-    end)
-    
-    plr.AncestryChanged:Connect(function()
-        box:Remove()
-        tracer:Remove()
-        healthBar:Remove()
-        nameTag:Remove()
-        conn:Disconnect()
-        ESP_Connections[plr] = nil
-    end)
-    
-    ESP_Connections[plr] = conn
-end
-
--- Инициализация ESP для всех игроков
-for _,plr in ipairs(Players:GetPlayers()) do
-    createESP(plr)
-end
-
--- Инициализация ESP для всех объектов
-if ESP_Objects_Enabled then
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-            createESPObject(obj)
-        end
-    end
-end
-
--- Hitbox Expand
-local function expandHitboxes()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            local head = plr.Character:FindFirstChild("Head")
-            if hrp and head then
-                if not OriginalSizes[plr] then
-                    OriginalSizes[plr] = {
-                        HRP_Size = hrp.Size,
-                        HRP_CanCollide = hrp.CanCollide,
-                        Head_Size = head.Size,
-                        Head_CanCollide = head.CanCollide
-                    }
-                end
-                hrp.Size = OriginalSizes[plr].HRP_Size * 3
-                hrp.CanCollide = false
-                head.Size = OriginalSizes[plr].Head_Size * 10
-                head.CanCollide = false
-            end
-        end
-    end
-end
-
-local function resetHitboxes()
-    for plr, sizes in pairs(OriginalSizes) do
-        if plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            local head = plr.Character:FindFirstChild("Head")
-            if hrp and head then
-                hrp.Size = sizes.HRP_Size
-                hrp.CanCollide = sizes.HRP_CanCollide
-                head.Size = sizes.Head_Size
-                head.CanCollide = sizes.Head_CanCollide
-            end
-        end
-    end
-    OriginalSizes = {}
-end
-
--- Wallhack
-local function setWallhack(state)
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-            if state then
-                obj.LocalTransparencyModifier = 0.5
-                obj.CanCollide = false
-            else
-                obj.LocalTransparencyModifier = 0
-                obj.CanCollide = true
-            end
-        end
-    end
-end
-
--- Infinity Jump
-UserInputService.JumpRequest:Connect(function()
-    if InfinityJump_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            task.wait(0.1)
-        end
-    end
-end)
-
--- Speed Hack
-RunService.Heartbeat:Connect(function()
-    if player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            if Speed_Enabled then
-                humanoid.WalkSpeed = WalkSpeed_Value
-            elseif humanoid.WalkSpeed ~= 16 then
-                humanoid.WalkSpeed = 16
-            end
-        end
-    end
-    
-    -- Run other checks
-    noFall()
-    antiKnockback()
-    spider()
-    triggerBot()
-    
-    -- Aimbot
-    if Aimbot_Enabled and player.Character and isPlayerAlive(player) then
-        local closestPlayer, closestDistance = nil, math.huge
-        local myHead = player.Character:FindFirstChild("Head")
-        if not myHead then return end
-        
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and isPlayerAlive(plr) and isCharacterValid(plr.Character) then
-                local targetHead = plr.Character:FindFirstChild("Head")
-                if targetHead then
-                    local distance = (targetHead.Position - myHead.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestPlayer = targetHead
-                    end
-                end
-            end
-        end
-        
-        if closestPlayer then
-            aimAt(closestPlayer)
-        end
-    end
-end)
-
--- Создаем кнопки функций
--- Aimbot
-createToggleButton("Aimbot", 0.05, currentY, function()
-    Aimbot_Enabled = not Aimbot_Enabled
-    return Aimbot_Enabled
-end)
-
--- Anti Knockback
-createToggleButton("Anti Knockback", 0.55, currentY, function()
-    AntiKnockback_Enabled = not AntiKnockback_Enabled
-    return AntiKnockback_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- ESP
-createToggleButton("ESP", 0.05, currentY, function()
-    ESP_Enabled = not ESP_Enabled
-    return ESP_Enabled
-end)
-
--- ESP Objects
-createToggleButton("ESP Objects", 0.55, currentY, function()
-    ESP_Objects_Enabled = not ESP_Objects_Enabled
-    if ESP_Objects_Enabled then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-                createESPObject(obj)
-            end
-        end
-    else
-        for obj, conn in pairs(ESP_Objects_Connections) do
-            conn:Disconnect()
-            ESP_Objects_Connections[obj] = nil
-        end
-    end
-    return ESP_Objects_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Hitbox
-createToggleButton("Hitbox", 0.05, currentY, function()
-    Hitbox_Enabled = not Hitbox_Enabled
-    if Hitbox_Enabled then
-        expandHitboxes()
-    else
-        resetHitboxes()
-    end
-    return Hitbox_Enabled
-end)
-
--- Infinity Jump
-createToggleButton("Infinity Jump", 0.55, currentY, function()
-    InfinityJump_Enabled = not InfinityJump_Enabled
-    return InfinityJump_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Night Vision
-createToggleButton("Night Vision", 0.05, currentY, function()
-    NightVision_Enabled = not NightVision_Enabled
-    setNightVision(NightVision_Enabled)
-    return NightVision_Enabled
-end)
-
--- No Fall
-createToggleButton("No Fall", 0.55, currentY, function()
-    NoFall_Enabled = not NoFall_Enabled
-    return NoFall_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Silent Aim
-createToggleButton("Silent Aim", 0.05, currentY, function()
-    SilentAim_Enabled = not SilentAim_Enabled
-    return SilentAim_Enabled
-end)
-
--- Speed
-createToggleButton("Speed", 0.55, currentY, function()
-    Speed_Enabled = not Speed_Enabled
-    return Speed_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Spider
-createToggleButton("Spider", 0.05, currentY, function()
-    Spider_Enabled = not Spider_Enabled
-    return Spider_Enabled
-end)
-
--- Tracer
-createToggleButton("Tracer", 0.55, currentY, function()
-    Tracer_Enabled = not Tracer_Enabled
-    return Tracer_Enabled
-end)
-
-currentY = currentY + btnSpacingY
-
--- Trigger Bot
-createToggleButton("Trigger Bot", 0.05, currentY, function()
-    TriggerBot_Enabled = not TriggerBot_Enabled
-    return TriggerBot_Enabled
-end)
-
--- Wallhack
-createToggleButton("Wallhack", 0.55, currentY, function()
-    Wallhack_Enabled = not Wallhack_Enabled
-    setWallhack(Wallhack_Enabled)
-    return Wallhack_Enabled
-end)
-
--- Player List
-local playerListFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 150, 0, 180),
-    Position = UDim2.new(1, -160, 0, 10),
-    BackgroundColor3 = MAIN_COLOR,
-    BackgroundTransparency = 0.4,
-})
-new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
-
-local titleLabel = new("TextLabel", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "Players",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 16,
-    TextColor3 = TEXT_COLOR,
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
-local playerListScrolling = new("ScrollingFrame", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, -10, 1, -30),
-    Position = UDim2.new(0, 5, 0, 25),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-})
-
-local playerListLayout = new("UIListLayout", {
-    Parent = playerListScrolling,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Padding = UDim.new(0, 2),
-})
-
-local function updatePlayerList()
-    for _, child in ipairs(playerListScrolling:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-    
-    local totalHeight = 0
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and 
-           player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            local playerEntry = new("TextLabel", {
-                Parent = playerListScrolling,
-                Size = UDim2.new(1, 0, 0, 16),
-                BackgroundTransparency = 1,
-                Text = plr.Name .. string.format(" [%.0f]", dist),
-                Font = Enum.Font.SourceSans,
-                TextSize = 12,
-                TextColor3 = TEXT_COLOR,
-                TextXAlignment = Enum.TextXAlignment.Center,
-            })
-            totalHeight = totalHeight + 18
-        end
-    end
-    
-    playerListScrolling.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-end
-
--- Поиск по функциям
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local searchText = string.lower(searchBox.Text)
-    
-    for _, button in ipairs(buttons) do
-        local buttonText = string.lower(button.Text)
-        if string.find(buttonText, searchText) then
-            button.Visible = true
-        else
-            button.Visible = searchText == ""
-        end
-    end
-end)
-
--- Hook для Silent Aim
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    
-    if SilentAim_Enabled and not checkcaller() then
-        if method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
-            local targetPos = silentAimHook()
-            if targetPos then
-                local args = {...}
-                local ray = args[1]
-                
-                if typeof(ray) == "Ray" then
-                    -- Меняем направление луча на голову ближайшего игрока
-                    local newRay = Ray.new(ray.Origin, (targetPos - ray.Origin).Unit * ray.Direction.Magnitude)
-                    args[1] = newRay
-                    return oldNamecall(self, unpack(args))
-                end
-            end
-        end
-    end
-    
-    return oldNamecall(self, ...)
-end)
-
--- Обновление таймера ключа
-local function updateKeyTimer()
-    while task.wait(1) do
-        if KEY_SYSTEM.ActiveKey then
-            if KEY_SYSTEM.KeyExpireTime then
-                local remaining = KEY_SYSTEM.KeyExpireTime - os.time()
-                if remaining > 0 then
-                    local days = math.floor(remaining / 86400)
-                    remaining = remaining % 86400
-                    local hours = math.floor(remaining / 3600)
-                    remaining = remaining % 3600
-                    local minutes = math.floor(remaining / 60)
-                    local seconds = remaining % 60
-                    
-                    local timeText
-                    if days > 0 then
-                        timeText = string.format("%dд %02d:%02d:%02d", days, hours, minutes, seconds)
-                    elseif hours > 0 then
-                        timeText = string.format("%02d:%02d:%02d", hours, minutes, seconds)
-                    else
-                        timeText = string.format("%02d:%02d", minutes, seconds)
-                    end
-                    
-                    keyTimerLabel.Text = string.format("Ключ: %s | Осталось: %s", 
-                        KEY_SYSTEM.ActiveKey, timeText)
-                    keyTimerLabel.Visible = true
-                else
-                    keyTimerLabel.Text = "Ключ истек! Введите новый."
-                    task.wait(3)
-                    KEY_SYSTEM.ActiveKey = nil
-                    KEY_SYSTEM.KeyExpireTime = nil
-                    pcall(function() KEY_SYSTEM.KeyStore:SetAsync(player.UserId, nil) end)
-                    floatBtn.Visible = false
-                    window.Visible = false
-                    loginFrame.Visible = true
-                    keyTimerLabel.Visible = false
-                end
-            else
-                keyTimerLabel.Text = "Ключ: "..KEY_SYSTEM.ActiveKey.." | PERMANENT"
-                keyTimerLabel.Visible = true
-            end
-        else
-            keyTimerLabel.Visible = false
-        end
-    end
-end
-
--- Логика входа
-loginButton.MouseButton1Click:Connect(function()
-    local inputKey = passwordBox.Text
-    if inputKey and inputKey ~= "" then
-        local success, message = validateAndActivateKey(inputKey)
-        
-        if success then
-            floatBtn.Visible = true
-            loginFrame.Visible = false
-            loginError.Text = ""
-            passwordBox.Text = ""
-            
-            -- Показываем сообщение в watermark
-            watermarkText.Text = message
-            task.delay(5, function()
-                watermarkText.Text = "Flux Client ["..KEY_SYSTEM.ActiveKey.."]"
-            end)
-        else
-            loginError.Text = message
-        end
-    else
-        loginError.Text = "Пожалуйста, введите ключ!"
-    end
-end)
-
+-- Toggle buttons
 btn.MouseButton1Click:Connect(function()
-    if checkKeyTime() then
-        window.Visible = not window.Visible
-    else
-        floatBtn.Visible = false
-        window.Visible = false
-        loginFrame.Visible = true
-        loginError.Text = "Ключ истек! Введите новый."
-    end
+    window.Visible = not window.Visible
 end)
 
 btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
 end)
 
--- Проверка ключа при запуске
-if checkKeyTime() then
-    floatBtn.Visible = true
-    loginFrame.Visible = false
-    watermarkText.Text = "Flux Client ["..KEY_SYSTEM.ActiveKey.."]"
-else
-    floatBtn.Visible = false
-    loginFrame.Visible = true
-end
-
--- Запускаем таймер
-task.spawn(updateKeyTimer)
-
--- Обновляем список игроков
-RunService.Heartbeat:Connect(function()
-    updatePlayerList()
+-- Cleanup
+screenGui.Destroying:Connect(function()
+    pulseConnection:Disconnect()
 end)
 
--- Обработка новых игроков
-Players.PlayerAdded:Connect(function(plr)
-    createESP(plr)
-    plr.CharacterAdded:Connect(function()
-        if Hitbox_Enabled then
-            task.wait(1)
-            expandHitboxes()
+-- ESP, Tracers, Aimbot and Crosshair features
+local espEnabled = false
+local tracersEnabled = false
+local aimbotEnabled = false
+local crosshairEnabled = false
+
+local espParts = {}
+local tracerLines = {}
+local aimbotTarget = nil
+local originalMouseIconEnabled = true
+
+-- Custom crosshair
+local crosshair = new("Frame", {
+    Parent = screenGui,
+    Size = UDim2.new(0, 12, 0, 12),
+    Position = UDim2.new(0.5, -6, 0.5, -6),
+    BackgroundTransparency = 1,
+    Visible = false,
+    ZIndex = 20,
+})
+
+local crosshairH = new("Frame", {
+    Parent = crosshair,
+    Size = UDim2.new(1, 0, 0, 1),
+    Position = UDim2.new(0, 0, 0.5, -0.5),
+    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+    BorderSizePixel = 0,
+})
+
+local crosshairV = new("Frame", {
+    Parent = crosshair,
+    Size = UDim2.new(0, 1, 1, 0),
+    Position = UDim2.new(0.5, -0.5, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+    BorderSizePixel = 0,
+})
+
+-- Function to create ESP box for a player
+local function createEsp(player)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local head = character:WaitForChild("Head")
+    
+    local box = new("BoxHandleAdornment", {
+        Name = "ESP_"..player.Name,
+        Adornee = humanoidRootPart,
+        AlwaysOnTop = true,
+        ZIndex = 0,
+        Size = Vector3.new(4, 6, 4),
+        Color3 = Color3.new(1, 1, 1),
+        Transparency = 0.3,
+        Parent = humanoidRootPart,
+    })
+    
+    local tracer = new("LineHandleAdornment", {
+        Name = "Tracer_"..player.Name,
+        Adornee = humanoidRootPart,
+        AlwaysOnTop = true,
+        ZIndex = 0,
+        Length = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude,
+        Color3 = Color3.new(1, 1, 1),
+        Transparency = 0.3,
+        Thickness = 1,
+        Parent = humanoidRootPart,
+    })
+    
+    espParts[player] = box
+    tracerLines[player] = tracer
+    
+    -- Update function
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Humanoid") or character.Humanoid.Health <= 0 then
+            connection:Disconnect()
+            if box then box:Destroy() end
+            if tracer then tracer:Destroy() end
+            espParts[player] = nil
+            tracerLines[player] = nil
+            return
         end
-        if Wallhack_Enabled then
-            task.wait(1)
-            setWallhack(true)
+        
+        if espEnabled and box then
+            box.Adornee = humanoidRootPart
+            box.Visible = true
+        elseif box then
+            box.Visible = false
+        end
+        
+        if tracersEnabled and tracer then
+            tracer.Adornee = humanoidRootPart
+            tracer.Length = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
+            tracer.CFrame = CFrame.new(humanoidRootPart.Position, camera.CFrame.Position)
+            tracer.Visible = true
+        elseif tracer then
+            tracer.Visible = false
         end
     end)
+    
+    character:WaitForChild("Humanoid").Died:Connect(function()
+        if box then box:Destroy() end
+        if tracer then tracer:Destroy() end
+        espParts[player] = nil
+        tracerLines[player] = nil
+        connection:Disconnect()
+    end)
+end
+
+-- Initialize ESP for existing players
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= Players.LocalPlayer then
+        coroutine.wrap(createEsp)(player)
+    end
+end
+
+-- Handle new players
+Players.PlayerAdded:Connect(function(player)
+    coroutine.wrap(createEsp)(player)
 end)
 
-Players.PlayerRemoving:Connect(function(plr)
-    if ESP_Connections[plr] then
-        ESP_Connections[plr]:Disconnect()
-        ESP_Connections[plr] = nil
+-- Handle player leaving
+Players.PlayerRemoving:Connect(function(player)
+    if espParts[player] then
+        espParts[player]:Destroy()
+        espParts[player] = nil
+    end
+    if tracerLines[player] then
+        tracerLines[player]:Destroy()
+        tracerLines[player] = nil
     end
 end)
 
--- Обработка новых объектов
-Workspace.DescendantAdded:Connect(function(obj)
-    if ESP_Objects_Enabled and obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-        createESPObject(obj)
+-- Aimbot function
+local function findClosestPlayer()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    local cameraPosition = camera.CFrame.Position
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character then
+            local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            
+            if humanoidRootPart and humanoid and humanoid.Health > 0 then
+                local distance = (humanoidRootPart.Position - cameraPosition).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Aimbot targeting
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if aimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimbotTarget = findClosestPlayer()
     end
 end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if aimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimbotTarget = nil
+    end
+end)
+
+-- Aimbot tracking
+RunService.Heartbeat:Connect(function()
+    if aimbotEnabled and aimbotTarget and aimbotTarget.Character then
+        local humanoidRootPart = aimbotTarget.Character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart then
+            local camera = Workspace.CurrentCamera
+            local targetPosition = humanoidRootPart.Position + Vector3.new(0, 1.5, 0) -- Aim at head level
+            
+            -- Calculate direction to target
+            local direction = (targetPosition - camera.CFrame.Position).Unit
+            local lookAt = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + direction)
+            
+            -- Apply the new CFrame to the camera
+            camera.CFrame = lookAt
+        end
+    end
+end)
+
+-- Toggle functions
+local function toggleEsp()
+    espEnabled = not espEnabled
+    for player, part in pairs(espParts) do
+        part.Visible = espEnabled and (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0)
+    end
+    return espEnabled
+end
+
+local function toggleTracers()
+    tracersEnabled = not tracersEnabled
+    for player, line in pairs(tracerLines) do
+        line.Visible = tracersEnabled and (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0)
+    end
+    return tracersEnabled
+end
+
+local function toggleAimbot()
+    aimbotEnabled = not aimbotEnabled
+    if not aimbotEnabled then
+        aimbotTarget = nil
+    end
+    return aimbotEnabled
+end
+
+local function toggleCrosshair()
+    crosshairEnabled = not crosshairEnabled
+    crosshair.Visible = crosshairEnabled
+    
+    -- Hide Roblox crosshair
+    if crosshairEnabled then
+        originalMouseIconEnabled = UserInputService.MouseIconEnabled
+        UserInputService.MouseIconEnabled = false
+        if player.PlayerGui:FindFirstChild("Crosshair") then
+            player.PlayerGui.Crosshair.Enabled = false
+        end
+    else
+        UserInputService.MouseIconEnabled = originalMouseIconEnabled
+        if player.PlayerGui:FindFirstChild("Crosshair") then
+            player.PlayerGui.Crosshair.Enabled = true
+        end
+    end
+    
+    return crosshairEnabled
+end
+
+-- Add buttons to GUI for toggling features
+local buttonContainer = new("Frame", {
+    Parent = window,
+    Size = UDim2.new(1, -20, 1, -60),
+    Position = UDim2.new(0, 10, 0, 50),
+    BackgroundTransparency = 1,
+})
+
+local function createToggleButton(name, position, toggleFunction)
+    local button = new("TextButton", {
+        Parent = buttonContainer,
+        Size = UDim2.new(0.45, 0, 0, 40),
+        Position = position,
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        Text = name,
+        Font = Enum.Font.SourceSans,
+        TextSize = 16,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+    })
+    
+    new("UICorner", {Parent = button, CornerRadius = UDim.new(0, 5)})
+    new("UIStroke", {Parent = button, Color = Color3.fromRGB(80, 80, 80), Thickness = 1})
+    
+    local state = false
+    
+    button.MouseButton1Click:Connect(function()
+        state = toggleFunction()
+        button.BackgroundColor3 = state and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(30, 30, 30)
+        button.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+    end)
+    
+    return button
+end
+
+-- Create toggle buttons
+createToggleButton("ESP", UDim2.new(0, 0, 0, 0), toggleEsp)
+createToggleButton("Tracers", UDim2.new(0.55, 0, 0, 0), toggleTracers)
+createToggleButton("Aimbot", UDim2.new(0, 0, 0, 50), toggleAimbot)
+createToggleButton("Crosshair", UDim2.new(0.55, 0, 0, 50), toggleCrosshair)

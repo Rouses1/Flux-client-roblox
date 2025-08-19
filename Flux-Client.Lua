@@ -1,397 +1,119 @@
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
-local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players") local RunService= game:GetService("RunService") local UserInputService= game:GetService("UserInputService") local Lighting= game:GetService("Lighting")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local camera = Workspace.CurrentCamera
+-- Ожидаем загрузку игрока local player= Players.LocalPlayer local playerGui= player:WaitForChild("PlayerGui") local camera= workspace.CurrentCamera
 
--- Utility function
-local function new(className, props)
-    local obj = Instance.new(className)
-    if props then
-        for k,v in pairs(props) do
-            obj[k] = v
-        end
-    end
-    return obj
+-- Функция для создания объектов local function new(className,props) local obj = Instance.new(className) if props then for k,v in pairs(props) do obj[k] = v end end return obj end
+
+-- Создаем основное GUI local screenGui= new("ScreenGui", { Name = "FluxClientGUI", ResetOnSpawn = false, Parent = playerGui, })
+
+-- Watermark local watermark= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 160, 0, 30), Position = UDim2.new(0, 10, 0, 10), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.3, }) new("UICorner",{Parent = watermark, CornerRadius = UDim.new(0,8)})
+
+new("TextLabel", { Parent = watermark, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "Flux Client", Font = Enum.Font.SourceSansSemibold, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, })
+
+-- Окно логина local loginFrame= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 300, 0, 160), Position = UDim2.new(0.5, -150, 0.5, -80), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.5, ZIndex = 20, }) new("UICorner",{Parent = loginFrame, CornerRadius = UDim.new(0,10)}) new("UIStroke",{Parent = loginFrame, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
+
+new("TextLabel", { Parent = loginFrame, Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 24), BackgroundTransparency = 1, Text = "Flux Client", Font = Enum.Font.SourceSansSemibold, TextSize = 18, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, })
+
+local passwordBox = new("TextBox", { Parent = loginFrame, Size = UDim2.new(0.85, 0, 0, 28), Position = UDim2.new(0.075, 0, 0.4, 0), PlaceholderText = "Введите ключ...", Text = "", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.1, ClearTextOnFocus = false, }) new("UICorner",{Parent = passwordBox, CornerRadius = UDim.new(0,6)})
+
+local loginButton = new("TextButton", { Parent = loginFrame, Size = UDim2.new(0.5, 0, 0, 28), Position = UDim2.new(0.25, 0, 0.7, 0), BackgroundColor3 = Color3.fromRGB(40,40,40), Text = "Войти", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), }) new("UICorner",{Parent = loginButton, CornerRadius = UDim.new(0,6)})
+
+local loginError = new("TextLabel", { Parent = loginFrame, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0.9, 0), BackgroundTransparency = 1, Text = "", Font = Enum.Font.SourceSans, TextSize = 14, TextColor3 = Color3.fromRGB(255,0,0), TextXAlignment = Enum.TextXAlignment.Center, })
+
+-- Главное меню local floatBtn= new("Frame", { Name = "FloatButton", Parent = screenGui, Size = UDim2.new(0, 60, 0, 60), Position = UDim2.new(0.02, 0, 0.5, -30), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.25, ZIndex = 10, Visible = false, }) new("UICorner",{Parent = floatBtn, CornerRadius = UDim.new(0,12)})
+
+local btn = new("TextButton", { Parent = floatBtn, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "≡", Font = Enum.Font.SourceSansBold, TextSize = 28, TextColor3 = Color3.fromRGB(255,255,255), AutoButtonColor = false, ZIndex = 11, })
+
+local window = new("Frame", { Name = "MainWindow", Parent = screenGui, Size = UDim2.new(0, 520, 0, 340), Position = UDim2.new(0.5, -260, 0.5, -170), Visible = false, BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.5, ZIndex = 9, }) new("UICorner",{Parent = window, CornerRadius = UDim.new(0,10)}) new("UIStroke",{Parent = window, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
+
+local btnClose = new("TextButton", { Parent = window, Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-36,0,4), BackgroundTransparency = 1, Text = "×", Font = Enum.Font.SourceSansBold, TextSize = 18, TextColor3 = Color3.fromRGB(255,255,255), ZIndex = 12, })
+
+local searchBox = new("TextBox", { Parent = window, Size = UDim2.new(0.8, 0, 0, 28), Position = UDim2.new(0.1, 0, 0, 45), PlaceholderText = "Search...", Text = "", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.1, }) new("UICorner",{Parent = searchBox, CornerRadius = UDim.new(0,6)})
+
+-- Переменные функций local ESP_Enabled= false local Tracer_Enabled= false local Hitbox_Enabled= false local InfinityJump_Enabled= false local Speed_Enabled= false local Wallhack_Enabled= false local NightVision_Enabled= false local NoFall_Enabled= false local AntiKnockback_Enabled= false local WalkSpeed_Value= 40 local ESP_Connections= {} local OriginalSizes= {}
+
+-- Night Vision local function setNightVision(state) if state then Lighting.Ambient = Color3.new(1, 1, 1) Lighting.ColorShift_Bottom = Color3.new(1, 1, 1) Lighting.ColorShift_Top = Color3.new(1, 1, 1) else Lighting.Ambient = Color3.new(0, 0, 0) Lighting.ColorShift_Bottom = Color3.new(0, 0, 0) Lighting.ColorShift_Top = Color3.new(0, 0, 0) end end
+
+-- No Fall local function noFall() if NoFall_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then humanoid:ChangeState("Running") end end end
+
+-- Anti Knockback local function antiKnockback() if AntiKnockback_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid then humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) end end end
+
+-- ESP local function createTracer() local tracer = Drawing.new("Line") tracer.Color = Color3.new(1,1,1) tracer.Thickness = 1 tracer.Transparency = 1 return tracer end
+
+local function createBox() local box = Drawing.new("Square") box.Color = Color3.new(1,1,1) box.Thickness = 1.5 box.Transparency = 1 box.Filled = false return box end
+
+local function createESP(plr) if plr == player then return end local box = createBox() local tracer = createTracer()
+
 end
 
--- ScreenGui
-local screenGui = new("ScreenGui", {
-    Name = "BloodXGUI",
-    ResetOnSpawn = false,
-    Parent = playerGui,
-})
+for _,plr in ipairs(Players:GetPlayers()) do createESP(plr) end
 
--- Floating button
-local floatBtn = new("Frame", {
-    Name = "FloatButton",
-    Parent = screenGui,
-    Size = UDim2.new(0, 60, 0, 60),
-    Position = UDim2.new(0.02, 0, 0.5, -30),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.25,
-    ZIndex = 10,
-})
-new("UICorner",{Parent = floatBtn, CornerRadius = UDim.new(0,12)})
+-- Hitbox Expand local function expandHitboxes() for _, plr in pairs(Players:GetPlayers()) do if plr ~= player and plr.Character then local hrp = plr.Character:FindFirstChild("HumanoidRootPart") local head = plr.Character:FindFirstChild("Head") if hrp and head then if not OriginalSizes[plr] then OriginalSizes[plr] = { HRP_Size = hrp.Size, HRP_CanCollide = hrp.CanCollide, Head_Size = head.Size, Head_CanCollide = head.CanCollide } end hrp.Size = OriginalSizes[plr].HRP_Size * 3 hrp.CanCollide = false head.Size = OriginalSizes[plr].Head_Size * 10 head.CanCollide = false end end end end
 
-local btn = new("TextButton", {
-    Parent = floatBtn,
-    Size = UDim2.new(1,0,1,0),
-    BackgroundTransparency = 1,
-    Text = "≡",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 28,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    AutoButtonColor = false,
-    ZIndex = 11,
-})
+local function resetHitboxes() for plr, sizes in pairs(OriginalSizes) do if plr.Character then local hrp = plr.Character:FindFirstChild("HumanoidRootPart") local head = plr.Character:FindFirstChild("Head") if hrp and head then hrp.Size = sizes.HRP_Size hrp.CanCollide = sizes.HRP_CanCollide head.Size = sizes.Head_Size head.CanCollide = sizes.Head_CanCollide end end end OriginalSizes = {} end
 
--- Main menu window
-local window = new("Frame", {
-    Name = "MainWindow",
-    Parent = screenGui,
-    Size = UDim2.new(0, 520, 0, 340),
-    Position = UDim2.new(0.5, -260, 0.5, -170),
-    Visible = false,
-    BackgroundColor3 = Color3.fromRGB(20,20,20),
-    BackgroundTransparency = 0.2,
-    ZIndex = 9,
-})
-new("UICorner",{Parent = window, CornerRadius = UDim.new(0,10)})
-new("UIStroke",{Parent = window, Color = Color3.fromRGB(50,50,50), Thickness = 2})
+-- Wallhack local function setWallhack(state) for _, obj in ipairs(workspace:GetDescendants()) do if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then if state then obj.LocalTransparencyModifier = 0.5 obj.CanCollide = false else obj.LocalTransparencyModifier = 0 obj.CanCollide = true end end end end
 
--- Header
-local header = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(1,0,0,36),
-    BackgroundTransparency = 1,
-})
+-- Infinity Jump UserInputService.JumpRequest:Connect(function() if InfinityJump_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) task.wait(0.1) end end end)
 
-local title = new("TextLabel", {
-    Parent = header,
-    Position = UDim2.new(0,12,0,0),
-    Size = UDim2.new(1,-120,1,0),
-    BackgroundTransparency = 1,
-    Text = "BloodX",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
+-- Speed Hack RunService.Heartbeat:Connect(function() if Speed_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid then humanoid.WalkSpeed = WalkSpeed_Value end elseif player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid.WalkSpeed ~= 16 then humanoid.WalkSpeed = 16 end end
 
--- Color pulse animation
-local pulseSpeed = 2
-local pulseConnection
-pulseConnection = RunService.Heartbeat:Connect(function(dt)
-    local time = os.clock() * pulseSpeed
-    local lerpValue = (math.sin(time) + 1) / 2
-    title.TextColor3 = Color3.new(lerpValue, lerpValue, lerpValue)
 end)
 
--- Close button
-local btnClose = new("TextButton", {
-    Parent = header,
-    Size = UDim2.new(0,28,0,28),
-    Position = UDim2.new(1,-36,0,4),
-    BackgroundTransparency = 1,
-    Text = "×",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    ZIndex = 12,
-})
+-- UI Кнопки local btnWidth= 0.4 local btnHeight= 28 local btnSpacingY= 30
 
--- Toggle buttons
-btn.MouseButton1Click:Connect(function()
-    window.Visible = not window.Visible
+local function createToggleButton(name, positionX, positionY, callback) local button = new("TextButton", { Parent = window, Size = UDim2.new(btnWidth, 0, 0, btnHeight), Position = UDim2.new(positionX, 0, 0, positionY), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0, Text = name, Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), }) new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)}) button.MouseButton1Click:Connect(function() local state = callback() if state then button.BackgroundColor3 = Color3.fromRGB(255,255,255) button.BackgroundTransparency = 0.7 else button.BackgroundColor3 = Color3.fromRGB(40,40,40) button.BackgroundTransparency = 0 end end) return button end
+
+-- Кнопки createToggleButton("ESP",0.05, 85, function() ESP_Enabled = not ESP_Enabled return ESP_Enabled end)
+
+createToggleButton("Hitbox", 0.55, 85, function() Hitbox_Enabled = not Hitbox_Enabled if Hitbox_Enabled then expandHitboxes() else resetHitboxes() end return Hitbox_Enabled end)
+
+createToggleButton("Wallhack", 0.05, 85 + btnSpacingY, function() Wallhack_Enabled = not Wallhack_Enabled setWallhack(Wallhack_Enabled) return Wallhack_Enabled end)
+
+createToggleButton("Tracer", 0.55, 85 + btnSpacingY, function() Tracer_Enabled = not Tracer_Enabled return Tracer_Enabled end)
+
+createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function() InfinityJump_Enabled = not InfinityJump_Enabled return InfinityJump_Enabled end)
+
+-- Слайдер скорости local speedSlider= new("Frame", { Parent = window, Size = UDim2.new(btnWidth, 0, 0, 20), Position = UDim2.new(0.55, 0, 0.55, 0), BackgroundColor3 = Color3.fromRGB(60,60,60), Visible = false, }) new("UICorner",{Parent = speedSlider, CornerRadius = UDim.new(0,6)})
+
+local speedSliderFill = new("Frame", { Parent = speedSlider, Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255,255,255), BackgroundTransparency = 0.7, }) new("UICorner",{Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
+
+local speedValueLabel = new("TextLabel", { Parent = speedSlider, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "Speed: "..WalkSpeed_Value, Font = Enum.Font.SourceSans, TextSize = 14, TextColor3 = Color3.fromRGB(255,255,255), })
+
+speedSlider.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local connection connection = RunService.Heartbeat:Connect(function() local mouse = UserInputService:GetMouseLocation() local sliderPos = speedSlider.AbsolutePosition local sliderSize = speedSlider.AbsoluteSize local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X) local percent = relativeX / sliderSize.X
+
 end)
 
-btnClose.MouseButton1Click:Connect(function()
-    window.Visible = false
-end)
+-- Кнопка Speed local speedButton= createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function() Speed_Enabled = not Speed_Enabled speedSlider.Visible = Speed_Enabled return Speed_Enabled end)
 
--- Cleanup
-screenGui.Destroying:Connect(function()
-    pulseConnection:Disconnect()
-end)
+createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*3, function() NightVision_Enabled = not NightVision_Enabled setNightVision(NightVision_Enabled) return NightVision_Enabled end)
 
--- ESP, Tracers, Aimbot and Crosshair features
-local espEnabled = false
-local tracersEnabled = false
-local aimbotEnabled = false
-local crosshairEnabled = false
+createToggleButton("No Fall", 0.55, 85 + btnSpacingY*3, function() NoFall_Enabled = not NoFall_Enabled return NoFall_Enabled end)
 
-local espParts = {}
-local tracerLines = {}
-local aimbotTarget = nil
-local originalMouseIconEnabled = true
+createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*4, function() AntiKnockback_Enabled = not AntiKnockback_Enabled return AntiKnockback_Enabled end)
 
--- Custom crosshair
-local crosshair = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 12, 0, 12),
-    Position = UDim2.new(0.5, -6, 0.5, -6),
-    BackgroundTransparency = 1,
-    Visible = false,
-    ZIndex = 20,
-})
+-- Player List local playerListFrame= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 150, 0, 180), Position = UDim2.new(1, -160, 0, 10), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.4, }) new("UICorner",{Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
 
-local crosshairH = new("Frame", {
-    Parent = crosshair,
-    Size = UDim2.new(1, 0, 0, 1),
-    Position = UDim2.new(0, 0, 0.5, -0.5),
-    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-    BorderSizePixel = 0,
-})
+local titleLabel = new("TextLabel", { Parent = playerListFrame, Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Text = "Players", Font = Enum.Font.SourceSansBold, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, })
 
-local crosshairV = new("Frame", {
-    Parent = crosshair,
-    Size = UDim2.new(0, 1, 1, 0),
-    Position = UDim2.new(0.5, -0.5, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-    BorderSizePixel = 0,
-})
+local playerListScrolling = new("ScrollingFrame", { Parent = playerListFrame, Size = UDim2.new(1, -10, 1, -30), Position = UDim2.new(0, 5, 0, 25), BackgroundTransparency = 1, ScrollBarThickness = 4, CanvasSize = UDim2.new(0, 0, 0, 0), })
 
--- Function to create ESP box for a player
-local function createEsp(player)
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-    local head = character:WaitForChild("Head")
-    
-    local box = new("BoxHandleAdornment", {
-        Name = "ESP_"..player.Name,
-        Adornee = humanoidRootPart,
-        AlwaysOnTop = true,
-        ZIndex = 0,
-        Size = Vector3.new(4, 6, 4),
-        Color3 = Color3.new(1, 1, 1),
-        Transparency = 0.3,
-        Parent = humanoidRootPart,
-    })
-    
-    local tracer = new("LineHandleAdornment", {
-        Name = "Tracer_"..player.Name,
-        Adornee = humanoidRootPart,
-        AlwaysOnTop = true,
-        ZIndex = 0,
-        Length = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude,
-        Color3 = Color3.new(1, 1, 1),
-        Transparency = 0.3,
-        Thickness = 1,
-        Parent = humanoidRootPart,
-    })
-    
-    espParts[player] = box
-    tracerLines[player] = tracer
-    
-    -- Update function
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Humanoid") or character.Humanoid.Health <= 0 then
-            connection:Disconnect()
-            if box then box:Destroy() end
-            if tracer then tracer:Destroy() end
-            espParts[player] = nil
-            tracerLines[player] = nil
-            return
-        end
-        
-        if espEnabled and box then
-            box.Adornee = humanoidRootPart
-            box.Visible = true
-        elseif box then
-            box.Visible = false
-        end
-        
-        if tracersEnabled and tracer then
-            tracer.Adornee = humanoidRootPart
-            tracer.Length = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
-            tracer.CFrame = CFrame.new(humanoidRootPart.Position, camera.CFrame.Position)
-            tracer.Visible = true
-        elseif tracer then
-            tracer.Visible = false
-        end
-    end)
-    
-    character:WaitForChild("Humanoid").Died:Connect(function()
-        if box then box:Destroy() end
-        if tracer then tracer:Destroy() end
-        espParts[player] = nil
-        tracerLines[player] = nil
-        connection:Disconnect()
-    end)
+local playerListLayout = new("UIListLayout", { Parent = playerListScrolling, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), })
+
+local function updatePlayerList() for _, child in ipairs(playerListScrolling:GetChildren()) do if child:IsA("TextLabel") then child:Destroy() end end
+
 end
 
--- Initialize ESP for existing players
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= Players.LocalPlayer then
-        coroutine.wrap(createEsp)(player)
-    end
-end
+RunService.Heartbeat:Connect(function() updatePlayerList() end)
 
--- Handle new players
-Players.PlayerAdded:Connect(function(player)
-    coroutine.wrap(createEsp)(player)
-end)
+-- Логика входа local CORRECT_PASSWORD= "FJAL-IIAL-10LL"
 
--- Handle player leaving
-Players.PlayerRemoving:Connect(function(player)
-    if espParts[player] then
-        espParts[player]:Destroy()
-        espParts[player] = nil
-    end
-    if tracerLines[player] then
-        tracerLines[player]:Destroy()
-        tracerLines[player] = nil
-    end
-end)
+loginButton.MouseButton1Click:Connect(function() if passwordBox.Text == CORRECT_PASSWORD then floatBtn.Visible = true loginFrame.Visible = false loginError.Text = "" else loginError.Text = "Неверный пароль!" end end)
 
--- Aimbot function
-local function findClosestPlayer()
-    local closestPlayer = nil
-    local closestDistance = math.huge
-    local cameraPosition = camera.CFrame.Position
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and player.Character then
-            local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-            local humanoid = player.Character:FindFirstChild("Humanoid")
-            
-            if humanoidRootPart and humanoid and humanoid.Health > 0 then
-                local distance = (humanoidRootPart.Position - cameraPosition).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestPlayer = player
-                end
-            end
-        end
-    end
-    
-    return closestPlayer
-end
+btn.MouseButton1Click:Connect(function() window.Visible = not window.Visible end)
 
--- Aimbot targeting
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if aimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
-        aimbotTarget = findClosestPlayer()
-    end
-end)
+btnClose.MouseButton1Click:Connect(function() window.Visible = false end)
 
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if aimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
-        aimbotTarget = nil
-    end
-end)
+Players.PlayerAdded:Connect(function(plr) createESP(plr) plr.CharacterAdded:Connect(function() if Hitbox_Enabled then task.wait(1) expandHitboxes() end if Wallhack_Enabled then task.wait(1) setWallhack(true) end end) end)
 
--- Aimbot tracking
-RunService.Heartbeat:Connect(function()
-    if aimbotEnabled and aimbotTarget and aimbotTarget.Character then
-        local humanoidRootPart = aimbotTarget.Character:FindFirstChild("HumanoidRootPart")
-        if humanoidRootPart then
-            local camera = Workspace.CurrentCamera
-            local targetPosition = humanoidRootPart.Position + Vector3.new(0, 1.5, 0) -- Aim at head level
-            
-            -- Calculate direction to target
-            local direction = (targetPosition - camera.CFrame.Position).Unit
-            local lookAt = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + direction)
-            
-            -- Apply the new CFrame to the camera
-            camera.CFrame = lookAt
-        end
-    end
-end)
-
--- Toggle functions
-local function toggleEsp()
-    espEnabled = not espEnabled
-    for player, part in pairs(espParts) do
-        part.Visible = espEnabled and (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0)
-    end
-    return espEnabled
-end
-
-local function toggleTracers()
-    tracersEnabled = not tracersEnabled
-    for player, line in pairs(tracerLines) do
-        line.Visible = tracersEnabled and (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0)
-    end
-    return tracersEnabled
-end
-
-local function toggleAimbot()
-    aimbotEnabled = not aimbotEnabled
-    if not aimbotEnabled then
-        aimbotTarget = nil
-    end
-    return aimbotEnabled
-end
-
-local function toggleCrosshair()
-    crosshairEnabled = not crosshairEnabled
-    crosshair.Visible = crosshairEnabled
-    
-    -- Hide Roblox crosshair
-    if crosshairEnabled then
-        originalMouseIconEnabled = UserInputService.MouseIconEnabled
-        UserInputService.MouseIconEnabled = false
-        if player.PlayerGui:FindFirstChild("Crosshair") then
-            player.PlayerGui.Crosshair.Enabled = false
-        end
-    else
-        UserInputService.MouseIconEnabled = originalMouseIconEnabled
-        if player.PlayerGui:FindFirstChild("Crosshair") then
-            player.PlayerGui.Crosshair.Enabled = true
-        end
-    end
-    
-    return crosshairEnabled
-end
-
--- Add buttons to GUI for toggling features
-local buttonContainer = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(1, -20, 1, -60),
-    Position = UDim2.new(0, 10, 0, 50),
-    BackgroundTransparency = 1,
-})
-
-local function createToggleButton(name, position, toggleFunction)
-    local button = new("TextButton", {
-        Parent = buttonContainer,
-        Size = UDim2.new(0.45, 0, 0, 40),
-        Position = position,
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
-        Text = name,
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-    })
-    
-    new("UICorner", {Parent = button, CornerRadius = UDim.new(0, 5)})
-    new("UIStroke", {Parent = button, Color = Color3.fromRGB(80, 80, 80), Thickness = 1})
-    
-    local state = false
-    
-    button.MouseButton1Click:Connect(function()
-        state = toggleFunction()
-        button.BackgroundColor3 = state and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(30, 30, 30)
-        button.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-    end)
-    
-    return button
-end
-
--- Create toggle buttons
-createToggleButton("ESP", UDim2.new(0, 0, 0, 0), toggleEsp)
-createToggleButton("Tracers", UDim2.new(0.55, 0, 0, 0), toggleTracers)
-createToggleButton("Aimbot", UDim2.new(0, 0, 0, 50), toggleAimbot)
-createToggleButton("Crosshair", UDim2.new(0.55, 0, 0, 50), toggleCrosshair)
+Players.PlayerRemoving:Connect(function(plr) if ESP_Connections[plr] then ESP_Connections[plr]:Disconnect() ESP_Connections[plr] = nil end end)

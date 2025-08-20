@@ -26,7 +26,7 @@ local screenGui = new("ScreenGui", {
     Parent = playerGui,
 })
 
--- Watermark
+-- Watermark с черно-белым переливающимся эффектом
 local watermark = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 160, 0, 30),
@@ -36,7 +36,7 @@ local watermark = new("Frame", {
 })
 new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
 
-new("TextLabel", {
+local watermarkText = new("TextLabel", {
     Parent = watermark,
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
@@ -47,6 +47,19 @@ new("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Center,
     TextYAlignment = Enum.TextYAlignment.Center,
 })
+
+-- Анимация переливающегося цвета для ватермарки
+coroutine.wrap(function()
+    while true do
+        for i = 0, 1, 0.01 do
+            if watermark and watermarkText then
+                local colorValue = math.sin(tick() * 5) * 0.5 + 0.5
+                watermarkText.TextColor3 = Color3.new(colorValue, colorValue, colorValue)
+            end
+            wait(0.03)
+        end
+    end
+end)()
 
 -- Окно логина
 local loginFrame = new("Frame", {
@@ -185,9 +198,20 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
+local AimBot_Enabled = false
+local FastBullets_Enabled = false
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
+
+-- AimBot переменные
+local AimCircle = Drawing.new("Circle")
+AimCircle.Visible = false
+AimCircle.Radius = 50
+AimCircle.Thickness = 1
+AimCircle.Color = Color3.new(1, 1, 1)
+AimCircle.Transparency = 1
+AimCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
 
 -- Night Vision
 local function setNightVision(state)
@@ -355,6 +379,64 @@ local function setWallhack(state)
     end
 end
 
+-- AimBot функция
+local function aimAtClosestPlayer()
+    if not AimBot_Enabled or not player.Character then return end
+    
+    local closestPlayer = nil
+    local closestDistance = 400 -- Максимальная дистанция
+    local myHead = player.Character:FindFirstChild("Head")
+    local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not myHead or not myRoot then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local targetHead = plr.Character:FindFirstChild("Head")
+            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            
+            if targetHead and targetRoot then
+                local distance = (targetRoot.Position - myRoot.Position).Magnitude
+                if distance <= 400 then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(targetHead.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+                        local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                        local distanceToCenter = (targetPos - mousePos).Magnitude
+                        
+                        if distanceToCenter <= AimCircle.Radius and distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    if closestPlayer and closestPlayer.Character then
+        local targetHead = closestPlayer.Character:FindFirstChild("Head")
+        if targetHead then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, targetHead.Position)
+        end
+    end
+end
+
+-- Fast Bullets функция
+local function enableFastBullets()
+    if FastBullets_Enabled then
+        for _, tool in ipairs(player.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                for _, part in ipairs(tool:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Velocity.Magnitude > 0 then
+                        part.Velocity = part.Velocity * 2
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Infinity Jump
 UserInputService.JumpRequest:Connect(function()
     if InfinityJump_Enabled and player.Character then
@@ -383,6 +465,8 @@ RunService.Heartbeat:Connect(function()
     -- Run No Fall and Anti Knockback checks
     noFall()
     antiKnockback()
+    aimAtClosestPlayer()
+    enableFastBullets()
 end)
 
 -- UI Кнопки
@@ -448,6 +532,19 @@ createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
     return InfinityJump_Enabled
 end)
 
+-- AimBot кнопка
+createToggleButton("AimBot", 0.55, 85 + btnSpacingY*2, function()
+    AimBot_Enabled = not AimBot_Enabled
+    AimCircle.Visible = AimBot_Enabled
+    return AimBot_Enabled
+end)
+
+-- Fast Bullets кнопка
+createToggleButton("Fast Bullets", 0.05, 85 + btnSpacingY*3, function()
+    FastBullets_Enabled = not FastBullets_Enabled
+    return FastBullets_Enabled
+end)
+
 -- Слайдер скорости
 local speedSlider = new("Frame", {
     Parent = window,
@@ -504,35 +601,37 @@ speedSlider.InputBegan:Connect(function(input)
 end)
 
 -- Кнопка Speed
-local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function()
+local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*3, function()
     Speed_Enabled = not Speed_Enabled
     speedSlider.Visible = Speed_Enabled
     return Speed_Enabled
 end)
 
-createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*3, function()
+createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*4, function()
     NightVision_Enabled = not NightVision_Enabled
     setNightVision(NightVision_Enabled)
     return NightVision_Enabled
 end)
 
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*3, function()
+createToggleButton("No Fall", 0.55, 85 + btnSpacingY*4, function()
     NoFall_Enabled = not NoFall_Enabled
     return NoFall_Enabled
 end)
 
-createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*4, function()
+createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*5, function()
     AntiKnockback_Enabled = not AntiKnockback_Enabled
     return AntiKnockback_Enabled
 end)
 
--- Player List
+-- Player List с возможностью перемещения
 local playerListFrame = new("Frame", {
     Parent = screenGui,
     Size = UDim2.new(0, 150, 0, 180),
     Position = UDim2.new(1, -160, 0, 10),
     BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 0.4,
+    Active = true,
+    Draggable = true,
 })
 new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
 

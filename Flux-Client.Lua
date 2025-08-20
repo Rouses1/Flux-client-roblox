@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 -- Ожидаем загрузку игрока
 local player = Players.LocalPlayer
@@ -174,19 +175,38 @@ local btnClose = new("TextButton", {
     ZIndex = 12,
 })
 
-local searchBox = new("TextBox", {
+-- Поисковая строка с иконкой лупы
+local searchContainer = new("Frame", {
     Parent = window,
     Size = UDim2.new(0.8, 0, 0, 28),
     Position = UDim2.new(0.1, 0, 0, 45),
+    BackgroundColor3 = Color3.fromRGB(40,40,40),
+    BackgroundTransparency = 0.1,
+})
+new("UICorner", {Parent = searchContainer, CornerRadius = UDim.new(0,6)})
+
+-- Иконка лупы
+local searchIcon = new("ImageLabel", {
+    Parent = searchContainer,
+    Size = UDim2.new(0, 20, 0, 20),
+    Position = UDim2.new(0, 5, 0.5, -10),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://3190669181", -- Иконка лупы
+    ImageColor3 = Color3.fromRGB(200,200,200),
+})
+
+local searchBox = new("TextBox", {
+    Parent = searchContainer,
+    Size = UDim2.new(1, -30, 1, 0),
+    Position = UDim2.new(0, 30, 0, 0),
     PlaceholderText = "Search...",
     Text = "",
     Font = Enum.Font.SourceSans,
     TextSize = 16,
     TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    BackgroundTransparency = 0.1,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
 })
-new("UICorner", {Parent = searchBox, CornerRadius = UDim.new(0,6)})
 
 -- Переменные функций
 local ESP_Enabled = false
@@ -198,20 +218,12 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
-local AimBot_Enabled = false
 local FastBullets_Enabled = false
+local HitEffect_Enabled = false
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
-
--- AimBot переменные
-local AimCircle = Drawing.new("Circle")
-AimCircle.Visible = false
-AimCircle.Radius = 50
-AimCircle.Thickness = 1
-AimCircle.Color = Color3.new(1, 1, 1)
-AimCircle.Transparency = 1
-AimCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+local FastBulletsConnections = {}
 
 -- Night Vision
 local function setNightVision(state)
@@ -379,60 +391,101 @@ local function setWallhack(state)
     end
 end
 
--- AimBot функция
-local function aimAtClosestPlayer()
-    if not AimBot_Enabled or not player.Character then return end
-    
-    local closestPlayer = nil
-    local closestDistance = 400 -- Максимальная дистанция
-    local myHead = player.Character:FindFirstChild("Head")
-    local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not myHead or not myRoot then return end
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local targetHead = plr.Character:FindFirstChild("Head")
-            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-            
-            if targetHead and targetRoot then
-                local distance = (targetRoot.Position - myRoot.Position).Magnitude
-                if distance <= 400 then
-                    local screenPos, onScreen = camera:WorldToViewportPoint(targetHead.Position)
-                    if onScreen then
-                        local mousePos = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-                        local targetPos = Vector2.new(screenPos.X, screenPos.Y)
-                        local distanceToCenter = (targetPos - mousePos).Magnitude
-                        
-                        if distanceToCenter <= AimCircle.Radius and distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = plr
-                        end
-                    end
-                end
+-- Исправленная функция Fast Bullets
+local function setupFastBullets()
+    -- Очищаем старые соединения
+    for _, conn in pairs(FastBulletsConnections) do
+        conn:Disconnect()
+    end
+    FastBulletsConnections = {}
+
+    if not FastBullets_Enabled then return end
+
+    local function modifyProjectile(projectile)
+        if projectile:IsA("BasePart") then
+            local bodyVelocity = projectile:FindFirstChildOfClass("BodyVelocity")
+            if bodyVelocity then
+                bodyVelocity.Velocity = bodyVelocity.Velocity * 2
+            else
+                projectile.Velocity = projectile.Velocity * 2
             end
         end
     end
-    
-    if closestPlayer and closestPlayer.Character then
-        local targetHead = closestPlayer.Character:FindFirstChild("Head")
-        if targetHead then
-            camera.CFrame = CFrame.new(camera.CFrame.Position, targetHead.Position)
+
+    -- Отслеживаем новые инструменты
+    local function onChildAdded(child)
+        if child:IsA("Tool") then
+            local conn = child.ChildAdded:Connect(function(projectile)
+                if FastBullets_Enabled then
+                    modifyProjectile(projectile)
+                end
+            end)
+            table.insert(FastBulletsConnections, conn)
         end
+    end
+
+    -- Отслеживаем существующие инструменты
+    for _, tool in ipairs(player.Character:GetChildren()) do
+        onChildAdded(tool)
+    end
+
+    local conn = player.Character.ChildAdded:Connect(onChildAdded)
+    table.insert(FastBulletsConnections, conn)
+end
+
+-- Hit Effect функция
+local function createHitEffect(position)
+    if not HitEffect_Enabled then return end
+    
+    for i = 1, 8 do
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(0.2, 0.2, 0.2)
+        part.Position = position
+        part.Anchored = true
+        part.CanCollide = false
+        part.Material = Enum.Material.Neon
+        part.BrickColor = BrickColor.new("Institutional white")
+        part.Transparency = 0.3
+        
+        local pointLight = Instance.new("PointLight")
+        pointLight.Brightness = 5
+        pointLight.Range = 5
+        pointLight.Color = Color3.new(1, 1, 1)
+        pointLight.Parent = part
+        
+        part.Parent = workspace
+        
+        local direction = Vector3.new(
+            math.random() * 2 - 1,
+            math.random() * 0.5 + 0.5,
+            math.random() * 2 - 1
+        ).Unit
+        
+        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local goal = {}
+        goal.Position = position + direction * 5
+        goal.Transparency = 1
+        
+        local tween = TweenService:Create(part, tweenInfo, goal)
+        tween:Play()
+        
+        game.Debris:AddItem(part, 0.6)
     end
 end
 
--- Fast Bullets функция
-local function enableFastBullets()
-    if FastBullets_Enabled then
-        for _, tool in ipairs(player.Character:GetChildren()) do
-            if tool:IsA("Tool") then
-                for _, part in ipairs(tool:GetDescendants()) do
-                    if part:IsA("BasePart") and part.Velocity.Magnitude > 0 then
-                        part.Velocity = part.Velocity * 2
+-- Обработка получения урона
+local function setupHitEffect()
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.HealthChanged:Connect(function()
+                if humanoid.Health < humanoid.MaxHealth then
+                    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                    if rootPart then
+                        createHitEffect(rootPart.Position)
                     end
                 end
-            end
+            end)
         end
     end
 end
@@ -465,8 +518,6 @@ RunService.Heartbeat:Connect(function()
     -- Run No Fall and Anti Knockback checks
     noFall()
     antiKnockback()
-    aimAtClosestPlayer()
-    enableFastBullets()
 end)
 
 -- UI Кнопки
@@ -532,17 +583,27 @@ createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
     return InfinityJump_Enabled
 end)
 
--- AimBot кнопка
-createToggleButton("AimBot", 0.55, 85 + btnSpacingY*2, function()
-    AimBot_Enabled = not AimBot_Enabled
-    AimCircle.Visible = AimBot_Enabled
-    return AimBot_Enabled
+-- Fast Bullets кнопка
+createToggleButton("Fast Bullets", 0.55, 85 + btnSpacingY*2, function()
+    FastBullets_Enabled = not FastBullets_Enabled
+    if FastBullets_Enabled and player.Character then
+        setupFastBullets()
+    else
+        for _, conn in pairs(FastBulletsConnections) do
+            conn:Disconnect()
+        end
+        FastBulletsConnections = {}
+    end
+    return FastBullets_Enabled
 end)
 
--- Fast Bullets кнопка
-createToggleButton("Fast Bullets", 0.05, 85 + btnSpacingY*3, function()
-    FastBullets_Enabled = not FastBullets_Enabled
-    return FastBullets_Enabled
+-- Hit Effect кнопка
+createToggleButton("Hit Effect", 0.05, 85 + btnSpacingY*3, function()
+    HitEffect_Enabled = not HitEffect_Enabled
+    if HitEffect_Enabled and player.Character then
+        setupHitEffect()
+    end
+    return HitEffect_Enabled
 end)
 
 -- Слайдер скорости
@@ -735,3 +796,12 @@ Players.PlayerRemoving:Connect(function(plr)
         ESP_Connections[plr] = nil
     end
 end)
+
+-- Инициализация Hit Effect при загрузке
+if player.Character then
+    setupHitEffect()
+else
+    player.CharacterAdded:Connect(function()
+        setupHitEffect()
+    end)
+end

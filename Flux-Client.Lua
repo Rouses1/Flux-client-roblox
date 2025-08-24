@@ -220,10 +220,12 @@ local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
 local FastBullets_Enabled = false
 local HitEffect_Enabled = false
+local SwingAnimation_Enabled = false
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
 local FastBulletsConnections = {}
+local SwingAnimationConnections = {}
 
 -- Night Vision
 local function setNightVision(state)
@@ -433,24 +435,37 @@ local function setupFastBullets()
     table.insert(FastBulletsConnections, conn)
 end
 
--- Hit Effect функция
+-- Улучшенный Hit Effect в виде светящихся орбов
 local function createHitEffect(position)
     if not HitEffect_Enabled then return end
     
-    for i = 1, 8 do
+    local colors = {
+        Color3.fromRGB(255, 50, 50),  -- Красный
+        Color3.fromRGB(50, 255, 50),  -- Зеленый
+        Color3.fromRGB(50, 50, 255),  -- Синий
+        Color3.fromRGB(255, 255, 50), -- Желтый
+        Color3.fromRGB(255, 50, 255), -- Пурпурный
+        Color3.fromRGB(50, 255, 255)  -- Голубой
+    }
+    
+    for i = 1, 12 do
         local part = Instance.new("Part")
-        part.Size = Vector3.new(0.2, 0.2, 0.2)
+        part.Shape = Enum.PartType.Ball  -- Сферическая форма
+        part.Size = Vector3.new(0.5, 0.5, 0.5)
         part.Position = position
         part.Anchored = true
         part.CanCollide = false
         part.Material = Enum.Material.Neon
         part.BrickColor = BrickColor.new("Institutional white")
-        part.Transparency = 0.3
+        part.Transparency = 0.2
+        
+        local randomColor = colors[math.random(1, #colors)]
+        part.Color = randomColor
         
         local pointLight = Instance.new("PointLight")
-        pointLight.Brightness = 5
-        pointLight.Range = 5
-        pointLight.Color = Color3.new(1, 1, 1)
+        pointLight.Brightness = 8
+        pointLight.Range = 8
+        pointLight.Color = randomColor
         pointLight.Parent = part
         
         part.Parent = workspace
@@ -461,33 +476,125 @@ local function createHitEffect(position)
             math.random() * 2 - 1
         ).Unit
         
-        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local goal = {}
-        goal.Position = position + direction * 5
+        goal.Position = position + direction * (math.random(5, 10))
         goal.Transparency = 1
+        goal.Size = Vector3.new(0.1, 0.1, 0.1)
         
         local tween = TweenService:Create(part, tweenInfo, goal)
         tween:Play()
         
-        game.Debris:AddItem(part, 0.6)
+        game.Debris:AddItem(part, 1)
     end
 end
 
--- Обработка получения урона
-local function setupHitEffect()
-    if player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.HealthChanged:Connect(function()
-                if humanoid.Health < humanoid.MaxHealth then
-                    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                    if rootPart then
-                        createHitEffect(rootPart.Position)
-                    end
+-- Глобальная система Hit Effect для всех игроков
+local function setupGlobalHitEffect()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if plr.Character then
+                local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                        if newHealth < oldHealth and HitEffect_Enabled then
+                            local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                createHitEffect(rootPart.Position)
+                            end
+                        end
+                    end)
+                end
+            end
+            
+            plr.CharacterAdded:Connect(function(character)
+                task.wait(1) -- Ждем загрузки персонажа
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                        if newHealth < oldHealth and HitEffect_Enabled then
+                            local rootPart = character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                createHitEffect(rootPart.Position)
+                            end
+                        end
+                    end)
                 end
             end)
         end
     end
+end
+
+-- Swing Animation (плавная анимация удара как в майнкрафт)
+local function setupSwingAnimation()
+    -- Очищаем старые соединения
+    for _, conn in pairs(SwingAnimationConnections) do
+        conn:Disconnect()
+    end
+    SwingAnimationConnections = {}
+    
+    if not SwingAnimation_Enabled or not player.Character then return end
+    
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    -- Функция для создания анимации удара
+    local function playSwingAnimation(tool)
+        if not tool:IsA("Tool") then return end
+        
+        local handle = tool:FindFirstChild("Handle")
+        if not handle then return end
+        
+        -- Сохраняем оригинальную позицию
+        local originalPosition = handle.Position
+        local originalOrientation = handle.Orientation
+        
+        -- Анимация удара
+        local swingTween = TweenService:Create(handle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            CFrame = handle.CFrame * CFrame.Angles(0, math.rad(90), 0) * CFrame.new(0, 0, -1)
+        })
+        
+        local returnTween = TweenService:Create(handle, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            CFrame = CFrame.new(originalPosition) * CFrame.Angles(
+                math.rad(originalOrientation.X),
+                math.rad(originalOrientation.Y),
+                math.rad(originalOrientation.Z)
+            )
+        })
+        
+        swingTween:Play()
+        swingTween.Completed:Connect(function()
+            returnTween:Play()
+        end)
+    end
+    
+    -- Отслеживаем использование инструментов
+    local function onToolActivated(tool)
+        if SwingAnimation_Enabled then
+            playSwingAnimation(tool)
+        end
+    end
+    
+    -- Подключаемся к существующим инструментам
+    for _, tool in ipairs(player.Character:GetChildren()) do
+        if tool:IsA("Tool") then
+            local conn = tool.Activated:Connect(function()
+                onToolActivated(tool)
+            end)
+            table.insert(SwingAnimationConnections, conn)
+        end
+    end
+    
+    -- Отслеживаем новые инструменты
+    local conn = player.Character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            local toolConn = child.Activated:Connect(function()
+                onToolActivated(child)
+            end)
+            table.insert(SwingAnimationConnections, toolConn)
+        end
+    end)
+    table.insert(SwingAnimationConnections, conn)
 end
 
 -- Infinity Jump
@@ -600,10 +707,24 @@ end)
 -- Hit Effect кнопка
 createToggleButton("Hit Effect", 0.05, 85 + btnSpacingY*3, function()
     HitEffect_Enabled = not HitEffect_Enabled
-    if HitEffect_Enabled and player.Character then
-        setupHitEffect()
+    if HitEffect_Enabled then
+        setupGlobalHitEffect()
     end
     return HitEffect_Enabled
+end)
+
+-- Swing Animation кнопка
+createToggleButton("Swing Anim", 0.55, 85 + btnSpacingY*3, function()
+    SwingAnimation_Enabled = not SwingAnimation_Enabled
+    if SwingAnimation_Enabled and player.Character then
+        setupSwingAnimation()
+    else
+        for _, conn in pairs(SwingAnimationConnections) do
+            conn:Disconnect()
+        end
+        SwingAnimationConnections = {}
+    end
+    return SwingAnimation_Enabled
 end)
 
 -- Слайдер скорости
@@ -662,7 +783,7 @@ speedSlider.InputBegan:Connect(function(input)
 end)
 
 -- Кнопка Speed
-local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*3, function()
+local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*4, function()
     Speed_Enabled = not Speed_Enabled
     speedSlider.Visible = Speed_Enabled
     return Speed_Enabled
@@ -674,7 +795,7 @@ createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*4, function()
     return NightVision_Enabled
 end)
 
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*4, function()
+createToggleButton("No Fall", 0.55, 85 + btnSpacingY*5, function()
     NoFall_Enabled = not NoFall_Enabled
     return NoFall_Enabled
 end)
@@ -778,6 +899,37 @@ end)
 
 Players.PlayerAdded:Connect(function(plr)
     createESP(plr)
+    if HitEffect_Enabled then
+        if plr.Character then
+            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                    if newHealth < oldHealth and HitEffect_Enabled then
+                        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            createHitEffect(rootPart.Position)
+                        end
+                    end
+                end)
+            end
+        end
+        
+        plr.CharacterAdded:Connect(function(character)
+            task.wait(1)
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                    if newHealth < oldHealth and HitEffect_Enabled then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            createHitEffect(rootPart.Position)
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+    
     plr.CharacterAdded:Connect(function()
         if Hitbox_Enabled then
             task.wait(1)
@@ -797,11 +949,16 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
--- Инициализация Hit Effect при загрузке
+-- Инициализация функций при загрузке
 if player.Character then
-    setupHitEffect()
+    setupGlobalHitEffect()
+    setupSwingAnimation()
 else
     player.CharacterAdded:Connect(function()
-        setupHitEffect()
+        setupGlobalHitEffect()
+        setupSwingAnimation()
     end)
-end 
+end
+
+-- Инициализация для существующих игроков
+setupGlobalHitEffect()

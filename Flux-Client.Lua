@@ -1,119 +1,391 @@
-local Players = game:GetService("Players") local RunService= game:GetService("RunService") local UserInputService= game:GetService("UserInputService") local Lighting= game:GetService("Lighting")
+-- Flux Client Чит-меню для Roblox
+-- Вставь этот код в исполнитель (Executor)
 
--- Ожидаем загрузку игрока local player= Players.LocalPlayer local playerGui= player:WaitForChild("PlayerGui") local camera= workspace.CurrentCamera
+local Flux = {}
 
--- Функция для создания объектов local function new(className,props) local obj = Instance.new(className) if props then for k,v in pairs(props) do obj[k] = v end end return obj end
+-- Сервисы
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
 
--- Создаем основное GUI local screenGui= new("ScreenGui", { Name = "FluxClientGUI", ResetOnSpawn = false, Parent = playerGui, })
+-- Локальный игрок
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
--- Watermark local watermark= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 160, 0, 30), Position = UDim2.new(0, 10, 0, 10), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.3, }) new("UICorner",{Parent = watermark, CornerRadius = UDim.new(0,8)})
+-- Создаем интерфейс
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FluxClient"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
 
-new("TextLabel", { Parent = watermark, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "Flux Client", Font = Enum.Font.SourceSansSemibold, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, })
+-- Окно ввода ключа
+local KeyWindow = Instance.new("Frame")
+KeyWindow.Name = "KeyWindow"
+KeyWindow.Size = UDim2.new(0, 300, 0, 180)
+KeyWindow.Position = UDim2.new(0.5, -150, 0.5, -90)
+KeyWindow.BackgroundColor3 = Color3.new(0, 0, 0)
+KeyWindow.BorderSizePixel = 2
+KeyWindow.BorderColor3 = Color3.new(1, 1, 1)
+KeyWindow.Parent = ScreenGui
 
--- Окно логина local loginFrame= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 300, 0, 160), Position = UDim2.new(0.5, -150, 0.5, -80), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.5, ZIndex = 20, }) new("UICorner",{Parent = loginFrame, CornerRadius = UDim.new(0,10)}) new("UIStroke",{Parent = loginFrame, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Position = UDim2.new(0, 0, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "Flux Client"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Parent = KeyWindow
 
-new("TextLabel", { Parent = loginFrame, Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 24), BackgroundTransparency = 1, Text = "Flux Client", Font = Enum.Font.SourceSansSemibold, TextSize = 18, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, })
-
-local passwordBox = new("TextBox", { Parent = loginFrame, Size = UDim2.new(0.85, 0, 0, 28), Position = UDim2.new(0.075, 0, 0.4, 0), PlaceholderText = "Введите ключ...", Text = "", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.1, ClearTextOnFocus = false, }) new("UICorner",{Parent = passwordBox, CornerRadius = UDim.new(0,6)})
-
-local loginButton = new("TextButton", { Parent = loginFrame, Size = UDim2.new(0.5, 0, 0, 28), Position = UDim2.new(0.25, 0, 0.7, 0), BackgroundColor3 = Color3.fromRGB(40,40,40), Text = "Войти", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), }) new("UICorner",{Parent = loginButton, CornerRadius = UDim.new(0,6)})
-
-local loginError = new("TextLabel", { Parent = loginFrame, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0.9, 0), BackgroundTransparency = 1, Text = "", Font = Enum.Font.SourceSans, TextSize = 14, TextColor3 = Color3.fromRGB(255,0,0), TextXAlignment = Enum.TextXAlignment.Center, })
-
--- Главное меню local floatBtn= new("Frame", { Name = "FloatButton", Parent = screenGui, Size = UDim2.new(0, 60, 0, 60), Position = UDim2.new(0.02, 0, 0.5, -30), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.25, ZIndex = 10, Visible = false, }) new("UICorner",{Parent = floatBtn, CornerRadius = UDim.new(0,12)})
-
-local btn = new("TextButton", { Parent = floatBtn, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "≡", Font = Enum.Font.SourceSansBold, TextSize = 28, TextColor3 = Color3.fromRGB(255,255,255), AutoButtonColor = false, ZIndex = 11, })
-
-local window = new("Frame", { Name = "MainWindow", Parent = screenGui, Size = UDim2.new(0, 520, 0, 340), Position = UDim2.new(0.5, -260, 0.5, -170), Visible = false, BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.5, ZIndex = 9, }) new("UICorner",{Parent = window, CornerRadius = UDim.new(0,10)}) new("UIStroke",{Parent = window, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
-
-local btnClose = new("TextButton", { Parent = window, Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-36,0,4), BackgroundTransparency = 1, Text = "×", Font = Enum.Font.SourceSansBold, TextSize = 18, TextColor3 = Color3.fromRGB(255,255,255), ZIndex = 12, })
-
-local searchBox = new("TextBox", { Parent = window, Size = UDim2.new(0.8, 0, 0, 28), Position = UDim2.new(0.1, 0, 0, 45), PlaceholderText = "Search...", Text = "", Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.1, }) new("UICorner",{Parent = searchBox, CornerRadius = UDim.new(0,6)})
-
--- Переменные функций local ESP_Enabled= false local Tracer_Enabled= false local Hitbox_Enabled= false local InfinityJump_Enabled= false local Speed_Enabled= false local Wallhack_Enabled= false local NightVision_Enabled= false local NoFall_Enabled= false local AntiKnockback_Enabled= false local WalkSpeed_Value= 40 local ESP_Connections= {} local OriginalSizes= {}
-
--- Night Vision local function setNightVision(state) if state then Lighting.Ambient = Color3.new(1, 1, 1) Lighting.ColorShift_Bottom = Color3.new(1, 1, 1) Lighting.ColorShift_Top = Color3.new(1, 1, 1) else Lighting.Ambient = Color3.new(0, 0, 0) Lighting.ColorShift_Bottom = Color3.new(0, 0, 0) Lighting.ColorShift_Top = Color3.new(0, 0, 0) end end
-
--- No Fall local function noFall() if NoFall_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then humanoid:ChangeState("Running") end end end
-
--- Anti Knockback local function antiKnockback() if AntiKnockback_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid then humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) end end end
-
--- ESP local function createTracer() local tracer = Drawing.new("Line") tracer.Color = Color3.new(1,1,1) tracer.Thickness = 1 tracer.Transparency = 1 return tracer end
-
-local function createBox() local box = Drawing.new("Square") box.Color = Color3.new(1,1,1) box.Thickness = 1.5 box.Transparency = 1 box.Filled = false return box end
-
-local function createESP(plr) if plr == player then return end local box = createBox() local tracer = createTracer()
-
-end
-
-for _,plr in ipairs(Players:GetPlayers()) do createESP(plr) end
-
--- Hitbox Expand local function expandHitboxes() for _, plr in pairs(Players:GetPlayers()) do if plr ~= player and plr.Character then local hrp = plr.Character:FindFirstChild("HumanoidRootPart") local head = plr.Character:FindFirstChild("Head") if hrp and head then if not OriginalSizes[plr] then OriginalSizes[plr] = { HRP_Size = hrp.Size, HRP_CanCollide = hrp.CanCollide, Head_Size = head.Size, Head_CanCollide = head.CanCollide } end hrp.Size = OriginalSizes[plr].HRP_Size * 3 hrp.CanCollide = false head.Size = OriginalSizes[plr].Head_Size * 10 head.CanCollide = false end end end end
-
-local function resetHitboxes() for plr, sizes in pairs(OriginalSizes) do if plr.Character then local hrp = plr.Character:FindFirstChild("HumanoidRootPart") local head = plr.Character:FindFirstChild("Head") if hrp and head then hrp.Size = sizes.HRP_Size hrp.CanCollide = sizes.HRP_CanCollide head.Size = sizes.Head_Size head.CanCollide = sizes.Head_CanCollide end end end OriginalSizes = {} end
-
--- Wallhack local function setWallhack(state) for _, obj in ipairs(workspace:GetDescendants()) do if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then if state then obj.LocalTransparencyModifier = 0.5 obj.CanCollide = false else obj.LocalTransparencyModifier = 0 obj.CanCollide = true end end end end
-
--- Infinity Jump UserInputService.JumpRequest:Connect(function() if InfinityJump_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) task.wait(0.1) end end end)
-
--- Speed Hack RunService.Heartbeat:Connect(function() if Speed_Enabled and player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid then humanoid.WalkSpeed = WalkSpeed_Value end elseif player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid and humanoid.WalkSpeed ~= 16 then humanoid.WalkSpeed = 16 end end
-
+-- Анимация переливания текста
+spawn(function()
+    while true do
+        for i = 0, 1, 0.01 do
+            Title.TextColor3 = Color3.new(i, i, i)
+            wait(0.01)
+        end
+        for i = 1, 0, -0.01 do
+            Title.TextColor3 = Color3.new(i, i, i)
+            wait(0.01)
+        end
+    end
 end)
 
--- UI Кнопки local btnWidth= 0.4 local btnHeight= 28 local btnSpacingY= 30
+local InputLabel = Instance.new("TextLabel")
+InputLabel.Name = "InputLabel"
+InputLabel.Size = UDim2.new(1, 0, 0, 20)
+InputLabel.Position = UDim2.new(0, 0, 0, 50)
+InputLabel.BackgroundTransparency = 1
+InputLabel.Text = "Enter key:"
+InputLabel.Font = Enum.Font.Gotham
+InputLabel.TextSize = 16
+InputLabel.TextColor3 = Color3.new(1, 1, 1)
+InputLabel.Parent = KeyWindow
 
-local function createToggleButton(name, positionX, positionY, callback) local button = new("TextButton", { Parent = window, Size = UDim2.new(btnWidth, 0, 0, btnHeight), Position = UDim2.new(positionX, 0, 0, positionY), BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0, Text = name, Font = Enum.Font.SourceSans, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), }) new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)}) button.MouseButton1Click:Connect(function() local state = callback() if state then button.BackgroundColor3 = Color3.fromRGB(255,255,255) button.BackgroundTransparency = 0.7 else button.BackgroundColor3 = Color3.fromRGB(40,40,40) button.BackgroundTransparency = 0 end end) return button end
+local KeyInput = Instance.new("TextBox")
+KeyInput.Name = "KeyInput"
+KeyInput.Size = UDim2.new(0, 260, 0, 40)
+KeyInput.Position = UDim2.new(0, 20, 0, 70)
+KeyInput.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+KeyInput.BorderSizePixel = 1
+KeyInput.BorderColor3 = Color3.new(1, 1, 1)
+KeyInput.Text = ""
+KeyInput.PlaceholderText = "Enter FLUX-ACCESS-KEY"
+KeyInput.Font = Enum.Font.Gotham
+KeyInput.TextSize = 18
+KeyInput.TextColor3 = Color3.new(1, 1, 1)
+KeyInput.Parent = KeyWindow
 
--- Кнопки createToggleButton("ESP",0.05, 85, function() ESP_Enabled = not ESP_Enabled return ESP_Enabled end)
+local SubmitButton = Instance.new("TextButton")
+SubmitButton.Name = "SubmitButton"
+SubmitButton.Size = UDim2.new(0, 120, 0, 35)
+SubmitButton.Position = UDim2.new(0.5, -60, 0, 125)
+SubmitButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+SubmitButton.BorderSizePixel = 1
+SubmitButton.BorderColor3 = Color3.new(1, 1, 1)
+SubmitButton.Text = "Submit"
+SubmitButton.Font = Enum.Font.Gotham
+SubmitButton.TextSize = 18
+SubmitButton.TextColor3 = Color3.new(1, 1, 1)
+SubmitButton.Parent = KeyWindow
 
-createToggleButton("Hitbox", 0.55, 85, function() Hitbox_Enabled = not Hitbox_Enabled if Hitbox_Enabled then expandHitboxes() else resetHitboxes() end return Hitbox_Enabled end)
+-- Кнопка меню
+local MenuButton = Instance.new("TextButton")
+MenuButton.Name = "MenuButton"
+MenuButton.Size = UDim2.new(0, 100, 0, 40)
+MenuButton.Position = UDim2.new(0, 20, 0, 20)
+MenuButton.BackgroundColor3 = Color3.new(0, 0, 0)
+MenuButton.BorderSizePixel = 2
+MenuButton.BorderColor3 = Color3.new(1, 1, 1)
+MenuButton.Text = "Open Menu"
+MenuButton.Font = Enum.Font.Gotham
+MenuButton.TextSize = 16
+MenuButton.TextColor3 = Color3.new(1, 1, 1)
+MenuButton.Visible = false
+MenuButton.Parent = ScreenGui
 
-createToggleButton("Wallhack", 0.05, 85 + btnSpacingY, function() Wallhack_Enabled = not Wallhack_Enabled setWallhack(Wallhack_Enabled) return Wallhack_Enabled end)
+-- Функции чита
+Flux.Noclip = false
+Flux.Speed = false
+Flux.Jump = false
+Flux.Fly = false
+Flux.Wallhack = false
+Flux.XRay = false
 
-createToggleButton("Tracer", 0.55, 85 + btnSpacingY, function() Tracer_Enabled = not Tracer_Enabled return Tracer_Enabled end)
-
-createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function() InfinityJump_Enabled = not InfinityJump_Enabled return InfinityJump_Enabled end)
-
--- Слайдер скорости local speedSlider= new("Frame", { Parent = window, Size = UDim2.new(btnWidth, 0, 0, 20), Position = UDim2.new(0.55, 0, 0.55, 0), BackgroundColor3 = Color3.fromRGB(60,60,60), Visible = false, }) new("UICorner",{Parent = speedSlider, CornerRadius = UDim.new(0,6)})
-
-local speedSliderFill = new("Frame", { Parent = speedSlider, Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255,255,255), BackgroundTransparency = 0.7, }) new("UICorner",{Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
-
-local speedValueLabel = new("TextLabel", { Parent = speedSlider, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "Speed: "..WalkSpeed_Value, Font = Enum.Font.SourceSans, TextSize = 14, TextColor3 = Color3.fromRGB(255,255,255), })
-
-speedSlider.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local connection connection = RunService.Heartbeat:Connect(function() local mouse = UserInputService:GetMouseLocation() local sliderPos = speedSlider.AbsolutePosition local sliderSize = speedSlider.AbsoluteSize local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X) local percent = relativeX / sliderSize.X
-
-end)
-
--- Кнопка Speed local speedButton= createToggleButton("Speed", 0.55, 85 + btnSpacingY*2, function() Speed_Enabled = not Speed_Enabled speedSlider.Visible = Speed_Enabled return Speed_Enabled end)
-
-createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*3, function() NightVision_Enabled = not NightVision_Enabled setNightVision(NightVision_Enabled) return NightVision_Enabled end)
-
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*3, function() NoFall_Enabled = not NoFall_Enabled return NoFall_Enabled end)
-
-createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*4, function() AntiKnockback_Enabled = not AntiKnockback_Enabled return AntiKnockback_Enabled end)
-
--- Player List local playerListFrame= new("Frame", { Parent = screenGui, Size = UDim2.new(0, 150, 0, 180), Position = UDim2.new(1, -160, 0, 10), BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 0.4, }) new("UICorner",{Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
-
-local titleLabel = new("TextLabel", { Parent = playerListFrame, Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Text = "Players", Font = Enum.Font.SourceSansBold, TextSize = 16, TextColor3 = Color3.fromRGB(255,255,255), TextXAlignment = Enum.TextXAlignment.Center, })
-
-local playerListScrolling = new("ScrollingFrame", { Parent = playerListFrame, Size = UDim2.new(1, -10, 1, -30), Position = UDim2.new(0, 5, 0, 25), BackgroundTransparency = 1, ScrollBarThickness = 4, CanvasSize = UDim2.new(0, 0, 0, 0), })
-
-local playerListLayout = new("UIListLayout", { Parent = playerListScrolling, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), })
-
-local function updatePlayerList() for _, child in ipairs(playerListScrolling:GetChildren()) do if child:IsA("TextLabel") then child:Destroy() end end
-
+-- Включение NoClip
+function Flux:ToggleNoclip()
+    self.Noclip = not self.Noclip
+    if self.Noclip then
+        LocalPlayer.Character.Humanoid:ChangeState(11)
+    end
+    return self.Noclip
 end
 
-RunService.Heartbeat:Connect(function() updatePlayerList() end)
+-- Включение скорости
+function Flux:ToggleSpeed()
+    self.Speed = not self.Speed
+    if self.Speed then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 50
+    else
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+    end
+    return self.Speed
+end
 
--- Логика входа local CORRECT_PASSWORD= "FJAL-IIAL-10LL"
+-- Включение высокого прыжка
+function Flux:ToggleJump()
+    self.Jump = not self.Jump
+    if self.Jump then
+        LocalPlayer.Character.Humanoid.JumpPower = 100
+    else
+        LocalPlayer.Character.Humanoid.JumpPower = 50
+    end
+    return self.Jump
+end
 
-loginButton.MouseButton1Click:Connect(function() if passwordBox.Text == CORRECT_PASSWORD then floatBtn.Visible = true loginFrame.Visible = false loginError.Text = "" else loginError.Text = "Неверный пароль!" end end)
+-- Включение полета
+function Flux:ToggleFly()
+    self.Fly = not self.Fly
+    if self.Fly then
+        local BodyGyro = Instance.new("BodyGyro")
+        local BodyVelocity = Instance.new("BodyVelocity")
+        
+        BodyGyro.Parent = LocalPlayer.Character.HumanoidRootPart
+        BodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
+        
+        BodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+        BodyGyro.MaxTorque = Vector3.new(40000, 40000, 40000)
+        
+        spawn(function()
+            while self.Fly do
+                BodyGyro.CFrame = Workspace.CurrentCamera.CFrame
+                BodyVelocity.Velocity = Workspace.CurrentCamera.CFrame.LookVector * 50
+                wait()
+            end
+            BodyGyro:Destroy()
+            BodyVelocity:Destroy()
+        end)
+    end
+    return self.Fly
+end
 
-btn.MouseButton1Click:Connect(function() window.Visible = not window.Visible end)
+-- Включение Wallhack
+function Flux:ToggleWallhack()
+    self.Wallhack = not self.Wallhack
+    if self.Wallhack then
+        for _, part in pairs(Workspace:GetDescendants()) do
+            if part:IsA("BasePart") and part.Transparency < 0.5 then
+                part.LocalTransparencyModifier = 0.5
+            end
+        end
+    else
+        for _, part in pairs(Workspace:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.LocalTransparencyModifier = 0
+            end
+        end
+    end
+    return self.Wallhack
+end
 
-btnClose.MouseButton1Click:Connect(function() window.Visible = false end)
+-- Включение XRay
+function Flux:ToggleXRay()
+    self.XRay = not self.XRay
+    if self.XRay then
+        Lighting.GlobalShadows = false
+    else
+        Lighting.GlobalShadows = true
+    end
+    return self.XRay
+end
 
-Players.PlayerAdded:Connect(function(plr) createESP(plr) plr.CharacterAdded:Connect(function() if Hitbox_Enabled then task.wait(1) expandHitboxes() end if Wallhack_Enabled then task.wait(1) setWallhack(true) end end) end)
+-- Бессмертие
+function Flux:GodMode()
+    LocalPlayer.Character.Humanoid.MaxHealth = math.huge
+    LocalPlayer.Character.Humanoid.Health = math.huge
+end
 
-Players.PlayerRemoving:Connect(function(plr) if ESP_Connections[plr] then ESP_Connections[plr]:Disconnect() ESP_Connections[plr] = nil end end)
+-- Телепорт к игроку
+function Flux:TeleportToPlayer(playerName)
+    local targetPlayer = Players:FindFirstChild(playerName)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character:MoveTo(targetPlayer.Character.HumanoidRootPart.Position)
+    end
+end
+
+-- Бесконечные деньги (работает не во всех играх)
+function Flux:InfiniteMoney()
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if leaderstats then
+        for _, stat in pairs(leaderstats:GetChildren()) do
+            if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                stat.Changed:Connect(function()
+                    if stat.Value < 1000000 then
+                        stat.Value = 1000000
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Анти-афк
+function Flux:AntiAFK()
+    local VirtualUser = game:GetService("VirtualUser")
+    LocalPlayer.Idled:connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end
+
+-- Открытие меню
+function Flux:ToggleMenu()
+    if not self.Menu then
+        self.Menu = Instance.new("Frame")
+        self.Menu.Name = "Menu"
+        self.Menu.Size = UDim2.new(0, 300, 0, 400)
+        self.Menu.Position = UDim2.new(0.1, 0, 0.1, 0)
+        self.Menu.BackgroundColor3 = Color3.new(0, 0, 0)
+        self.Menu.BackgroundTransparency = 0.2
+        self.Menu.BorderSizePixel = 2
+        self.Menu.BorderColor3 = Color3.new(1, 1, 1)
+        self.Menu.Parent = ScreenGui
+        
+        local MenuTitle = Instance.new("TextLabel")
+        MenuTitle.Name = "MenuTitle"
+        MenuTitle.Size = UDim2.new(0, 200, 0, 30)
+        MenuTitle.Position = UDim2.new(0, 10, 0, 10)
+        MenuTitle.BackgroundTransparency = 1
+        MenuTitle.Text = "Flux Client"
+        MenuTitle.Font = Enum.Font.GothamBold
+        MenuTitle.TextSize = 20
+        MenuTitle.TextXAlignment = Enum.TextXAlignment.Left
+        MenuTitle.TextColor3 = Color3.new(1, 1, 1)
+        MenuTitle.Parent = self.Menu
+        
+        -- Анимация переливания текста меню
+        spawn(function()
+            while MenuTitle do
+                for i = 0, 1, 0.01 do
+                    if not MenuTitle then break end
+                    MenuTitle.TextColor3 = Color3.new(i, i, i)
+                    wait(0.01)
+                end
+                for i = 1, 0, -0.01 do
+                    if not MenuTitle then break end
+                    MenuTitle.TextColor3 = Color3.new(i, i, i)
+                    wait(0.01)
+                end
+            end
+        end)
+        
+        -- Кнопки функций
+        local buttons = {
+            {"Noclip", function() Flux:ToggleNoclip() end},
+            {"Speed Hack", function() Flux:ToggleSpeed() end},
+            {"High Jump", function() Flux:ToggleJump() end},
+            {"Fly", function() Flux:ToggleFly() end},
+            {"Wallhack", function() Flux:ToggleWallhack() end},
+            {"XRay Vision", function() Flux:ToggleXRay() end},
+            {"God Mode", function() Flux:GodMode() end},
+            {"Anti-AFK", function() Flux:AntiAFK() end},
+            {"Infinite Money", function() Flux:InfiniteMoney() end}
+        }
+        
+        for i, btn in ipairs(buttons) do
+            local button = Instance.new("TextButton")
+            button.Name = btn[1]
+            button.Size = UDim2.new(0, 280, 0, 30)
+            button.Position = UDim2.new(0, 10, 0, 50 + (i-1)*35)
+            button.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+            button.BorderSizePixel = 1
+            button.BorderColor3 = Color3.new(0.8, 0.8, 0.8)
+            button.Text = btn[1]
+            button.Font = Enum.Font.Gotham
+            button.TextSize = 16
+            button.TextColor3 = Color3.new(1, 1, 1)
+            button.Parent = self.Menu
+            
+            button.MouseButton1Click:Connect(btn[2])
+        end
+    else
+        self.Menu.Visible = not self.Menu.Visible
+    end
+    MenuButton.Text = self.Menu and self.Menu.Visible and "Close Menu" or "Open Menu"
+end
+
+-- Перетаскивание кнопки меню
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    MenuButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MenuButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MenuButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MenuButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Обработка ввода ключа
+SubmitButton.MouseButton1Click:Connect(function()
+    local key = KeyInput.Text:gsub("%s+", "")
+    
+    -- Проверка ключа (простая версия)
+    if key == "FLUX-ACCESS-KEY" or key == "FLUX-7294-8816-3456" or key == "12345" then
+        KeyWindow.Visible = false
+        MenuButton.Visible = true
+        Flux:ToggleMenu()
+    else
+        -- Анимация ошибки
+        for i = 1, 3 do
+            KeyInput.BackgroundColor3 = Color3.new(0.5, 0, 0)
+            wait(0.1)
+            KeyInput.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+            wait(0.1)
+        end
+    end
+end)
+
+-- NoClip цикл
+spawn(function()
+    while true do
+        wait(0.1)
+        if Flux.Noclip and LocalPlayer.Character then
+            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+print("Flux Client loaded! Use key: FLUX-ACCESS-KEY")

@@ -1,964 +1,208 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local FluxClient = {}
+
+-- Сервисы
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
--- Ожидаем загрузку игрока
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
+-- Основной GUI объект
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FluxClientUI"
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
 
--- Функция для создания объектов
-local function new(className, props)
-    local obj = Instance.new(className)
-    if props then
-        for k,v in pairs(props) do
-            obj[k] = v
-        end
-    end
-    return obj
-end
-
--- Создаем основное GUI
-local screenGui = new("ScreenGui", {
-    Name = "FluxClientGUI",
-    ResetOnSpawn = false,
-    Parent = playerGui,
-})
-
--- Watermark с черно-белым переливающимся эффектом
-local watermark = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 160, 0, 30),
-    Position = UDim2.new(0, 10, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.3,
-})
-new("UICorner", {Parent = watermark, CornerRadius = UDim.new(0,8)})
-
-local watermarkText = new("TextLabel", {
-    Parent = watermark,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Flux Client",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    TextYAlignment = Enum.TextYAlignment.Center,
-})
-
--- Анимация переливающегося цвета для ватермарки
-coroutine.wrap(function()
-    while true do
-        for i = 0, 1, 0.01 do
-            if watermark and watermarkText then
-                local colorValue = math.sin(tick() * 5) * 0.5 + 0.5
-                watermarkText.TextColor3 = Color3.new(colorValue, colorValue, colorValue)
-            end
-            wait(0.03)
-        end
-    end
-end)()
-
--- Окно логина
-local loginFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 300, 0, 160),
-    Position = UDim2.new(0.5, -150, 0.5, -80),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.5,
-    ZIndex = 20,
-})
-new("UICorner", {Parent = loginFrame, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = loginFrame, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
-
-new("TextLabel", {
-    Parent = loginFrame,
-    Position = UDim2.new(0, 12, 0, 8),
-    Size = UDim2.new(1, -24, 0, 24),
-    BackgroundTransparency = 1,
-    Text = "Flux Client",
-    Font = Enum.Font.SourceSansSemibold,
-    TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
-local passwordBox = new("TextBox", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.85, 0, 0, 28),
-    Position = UDim2.new(0.075, 0, 0.4, 0),
-    PlaceholderText = "Введите ключ...",
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    BackgroundTransparency = 0.1,
-    ClearTextOnFocus = false,
-})
-new("UICorner", {Parent = passwordBox, CornerRadius = UDim.new(0,6)})
-
-local loginButton = new("TextButton", {
-    Parent = loginFrame,
-    Size = UDim2.new(0.5, 0, 0, 28),
-    Position = UDim2.new(0.25, 0, 0.7, 0),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    Text = "Войти",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-})
-new("UICorner", {Parent = loginButton, CornerRadius = UDim.new(0,6)})
-
-local loginError = new("TextLabel", {
-    Parent = loginFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0.9, 0),
-    BackgroundTransparency = 1,
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = Color3.fromRGB(255,0,0),
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
--- Главное меню
-local floatBtn = new("Frame", {
-    Name = "FloatButton",
-    Parent = screenGui,
-    Size = UDim2.new(0, 60, 0, 60),
-    Position = UDim2.new(0.02, 0, 0.5, -30),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.25,
-    ZIndex = 10,
-    Visible = false,
-})
-new("UICorner", {Parent = floatBtn, CornerRadius = UDim.new(0,12)})
-
-local btn = new("TextButton", {
-    Parent = floatBtn,
-    Size = UDim2.new(1,0,1,0),
-    BackgroundTransparency = 1,
-    Text = "≡",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 28,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    AutoButtonColor = false,
-    ZIndex = 11,
-})
-
-local window = new("Frame", {
-    Name = "MainWindow",
-    Parent = screenGui,
-    Size = UDim2.new(0, 520, 0, 340),
-    Position = UDim2.new(0.5, -260, 0.5, -170),
-    Visible = false,
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.5,
-    ZIndex = 9,
-})
-new("UICorner", {Parent = window, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = window, Color = Color3.fromRGB(0,0,0), Transparency = 0.6})
-
-local btnClose = new("TextButton", {
-    Parent = window,
-    Size = UDim2.new(0,28,0,28),
-    Position = UDim2.new(1,-36,0,4),
-    BackgroundTransparency = 1,
-    Text = "×",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 18,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    ZIndex = 12,
-})
-
--- Поисковая строка с иконкой лупы
-local searchContainer = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(0.8, 0, 0, 28),
-    Position = UDim2.new(0.1, 0, 0, 45),
-    BackgroundColor3 = Color3.fromRGB(40,40,40),
-    BackgroundTransparency = 0.1,
-})
-new("UICorner", {Parent = searchContainer, CornerRadius = UDim.new(0,6)})
-
--- Иконка лупы
-local searchIcon = new("ImageLabel", {
-    Parent = searchContainer,
-    Size = UDim2.new(0, 20, 0, 20),
-    Position = UDim2.new(0, 5, 0.5, -10),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://3190669181", -- Иконка лупы
-    ImageColor3 = Color3.fromRGB(200,200,200),
-})
-
-local searchBox = new("TextBox", {
-    Parent = searchContainer,
-    Size = UDim2.new(1, -30, 1, 0),
-    Position = UDim2.new(0, 30, 0, 0),
-    PlaceholderText = "Search...",
-    Text = "",
-    Font = Enum.Font.SourceSans,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-})
-
--- Переменные функций
-local ESP_Enabled = false
-local Tracer_Enabled = false
-local Hitbox_Enabled = false
-local InfinityJump_Enabled = false
-local Speed_Enabled = false
-local Wallhack_Enabled = false
-local NightVision_Enabled = false
-local NoFall_Enabled = false
-local AntiKnockback_Enabled = false
-local FastBullets_Enabled = false
-local HitEffect_Enabled = false
-local SwingAnimation_Enabled = false
-local WalkSpeed_Value = 40
-local ESP_Connections = {}
-local OriginalSizes = {}
-local FastBulletsConnections = {}
-local SwingAnimationConnections = {}
-
--- Night Vision
-local function setNightVision(state)
-    if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    else
-        Lighting.Ambient = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Top = Color3.new(0, 0, 0)
-    end
-end
-
--- No Fall
-local function noFall()
-    if NoFall_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-            humanoid:ChangeState("Running")
-        end
-    end
-end
-
--- Anti Knockback
-local function antiKnockback()
-    if AntiKnockback_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        end
-    end
-end
-
--- ESP
-local function createTracer()
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.new(1,1,1)
-    tracer.Thickness = 1
-    tracer.Transparency = 1
-    return tracer
-end
-
-local function createBox()
-    local box = Drawing.new("Square")
-    box.Color = Color3.new(1,1,1)
-    box.Thickness = 1.5
-    box.Transparency = 1
-    box.Filled = false
-    return box
-end
-
-local function createESP(plr)
-    if plr == player then return end
-    local box = createBox()
-    local tracer = createTracer()
-
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        local visible = false
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local head = plr.Character:FindFirstChild("Head")
-            local pos, vis = camera:WorldToViewportPoint(hrp.Position)
-
-            if vis then
-                local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-                local footPos = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-                local height = footPos.Y - headPos.Y
-                local width = height / 2
-
-                if ESP_Enabled then                  
-                    box.Size = Vector2.new(width, height)                  
-                    box.Position = Vector2.new(headPos.X - width/2, headPos.Y)                  
-                    box.Visible = true                  
-                else                  
-                    box.Visible = false                  
-                end                  
-
-                if Tracer_Enabled then                  
-                    tracer.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)                  
-                    tracer.To = Vector2.new(pos.X, pos.Y)                  
-                    tracer.Visible = true                  
-                else                  
-                    tracer.Visible = false                  
-                end                  
-
-                visible = true                  
-            end
-        end
-
-        if not visible then
-            box.Visible = false
-            tracer.Visible = false
-        end
-    end)
-
-    plr.AncestryChanged:Connect(function()
-        box:Remove()
-        tracer:Remove()
-        conn:Disconnect()
-        ESP_Connections[plr] = nil
-    end)
-
-    ESP_Connections[plr] = conn
-end
-
-for _,plr in ipairs(Players:GetPlayers()) do
-    createESP(plr)
-end
-
--- Hitbox Expand
-local function expandHitboxes()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            local head = plr.Character:FindFirstChild("Head")
-            if hrp and head then
-                if not OriginalSizes[plr] then
-                    OriginalSizes[plr] = {
-                        HRP_Size = hrp.Size,
-                        HRP_CanCollide = hrp.CanCollide,
-                        Head_Size = head.Size,
-                        Head_CanCollide = head.CanCollide
-                    }
-                end
-                hrp.Size = OriginalSizes[plr].HRP_Size * 3
-                hrp.CanCollide = false
-                head.Size = OriginalSizes[plr].Head_Size * 10
-                head.CanCollide = false
-            end
-        end
-    end
-end
-
-local function resetHitboxes()
-    for plr, sizes in pairs(OriginalSizes) do
-        if plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            local head = plr.Character:FindFirstChild("Head")
-            if hrp and head then
-                hrp.Size = sizes.HRP_Size
-                hrp.CanCollide = sizes.HRP_CanCollide
-                head.Size = sizes.Head_Size
-                head.CanCollide = sizes.Head_CanCollide
-            end
-        end
-    end
-    OriginalSizes = {}
-end
-
--- Wallhack
-local function setWallhack(state)
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-            if state then
-                obj.LocalTransparencyModifier = 0.5
-                obj.CanCollide = false
-            else
-                obj.LocalTransparencyModifier = 0
-                obj.CanCollide = true
-            end
-        end
-    end
-end
-
--- Исправленная функция Fast Bullets
-local function setupFastBullets()
-    -- Очищаем старые соединения
-    for _, conn in pairs(FastBulletsConnections) do
-        conn:Disconnect()
-    end
-    FastBulletsConnections = {}
-
-    if not FastBullets_Enabled then return end
-
-    local function modifyProjectile(projectile)
-        if projectile:IsA("BasePart") then
-            local bodyVelocity = projectile:FindFirstChildOfClass("BodyVelocity")
-            if bodyVelocity then
-                bodyVelocity.Velocity = bodyVelocity.Velocity * 2
-            else
-                projectile.Velocity = projectile.Velocity * 2
-            end
-        end
-    end
-
-    -- Отслеживаем новые инструменты
-    local function onChildAdded(child)
-        if child:IsA("Tool") then
-            local conn = child.ChildAdded:Connect(function(projectile)
-                if FastBullets_Enabled then
-                    modifyProjectile(projectile)
-                end
-            end)
-            table.insert(FastBulletsConnections, conn)
-        end
-    end
-
-    -- Отслеживаем существующие инструменты
-    for _, tool in ipairs(player.Character:GetChildren()) do
-        onChildAdded(tool)
-    end
-
-    local conn = player.Character.ChildAdded:Connect(onChildAdded)
-    table.insert(FastBulletsConnections, conn)
-end
-
--- Улучшенный Hit Effect в виде светящихся орбов
-local function createHitEffect(position)
-    if not HitEffect_Enabled then return end
+-- Функция для создания переливающегося текста
+local function createShimmeringText(label)
+    local shimmer = 0
+    local increasing = true
     
-    local colors = {
-        Color3.fromRGB(255, 50, 50),  -- Красный
-        Color3.fromRGB(50, 255, 50),  -- Зеленый
-        Color3.fromRGB(50, 50, 255),  -- Синий
-        Color3.fromRGB(255, 255, 50), -- Желтый
-        Color3.fromRGB(255, 50, 255), -- Пурпурный
-        Color3.fromRGB(50, 255, 255)  -- Голубой
-    }
-    
-    for i = 1, 12 do
-        local part = Instance.new("Part")
-        part.Shape = Enum.PartType.Ball  -- Сферическая форма
-        part.Size = Vector3.new(0.5, 0.5, 0.5)
-        part.Position = position
-        part.Anchored = true
-        part.CanCollide = false
-        part.Material = Enum.Material.Neon
-        part.BrickColor = BrickColor.new("Institutional white")
-        part.Transparency = 0.2
-        
-        local randomColor = colors[math.random(1, #colors)]
-        part.Color = randomColor
-        
-        local pointLight = Instance.new("PointLight")
-        pointLight.Brightness = 8
-        pointLight.Range = 8
-        pointLight.Color = randomColor
-        pointLight.Parent = part
-        
-        part.Parent = workspace
-        
-        local direction = Vector3.new(
-            math.random() * 2 - 1,
-            math.random() * 0.5 + 0.5,
-            math.random() * 2 - 1
-        ).Unit
-        
-        local tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local goal = {}
-        goal.Position = position + direction * (math.random(5, 10))
-        goal.Transparency = 1
-        goal.Size = Vector3.new(0.1, 0.1, 0.1)
-        
-        local tween = TweenService:Create(part, tweenInfo, goal)
-        tween:Play()
-        
-        game.Debris:AddItem(part, 1)
-    end
-end
-
--- Глобальная система Hit Effect для всех игроков
-local function setupGlobalHitEffect()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player then
-            if plr.Character then
-                local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
-                        if newHealth < oldHealth and HitEffect_Enabled then
-                            local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
-                            if rootPart then
-                                createHitEffect(rootPart.Position)
-                            end
-                        end
-                    end)
-                end
-            end
-            
-            plr.CharacterAdded:Connect(function(character)
-                task.wait(1) -- Ждем загрузки персонажа
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
-                        if newHealth < oldHealth and HitEffect_Enabled then
-                            local rootPart = character:FindFirstChild("HumanoidRootPart")
-                            if rootPart then
-                                createHitEffect(rootPart.Position)
-                            end
-                        end
-                    end)
-                end
-            end)
-        end
-    end
-end
-
--- Swing Animation (плавная анимация удара как в майнкрафт)
-local function setupSwingAnimation()
-    -- Очищаем старые соединения
-    for _, conn in pairs(SwingAnimationConnections) do
-        conn:Disconnect()
-    end
-    SwingAnimationConnections = {}
-    
-    if not SwingAnimation_Enabled or not player.Character then return end
-    
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    
-    -- Функция для создания анимации удара
-    local function playSwingAnimation(tool)
-        if not tool:IsA("Tool") then return end
-        
-        local handle = tool:FindFirstChild("Handle")
-        if not handle then return end
-        
-        -- Сохраняем оригинальную позицию
-        local originalPosition = handle.Position
-        local originalOrientation = handle.Orientation
-        
-        -- Анимация удара
-        local swingTween = TweenService:Create(handle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            CFrame = handle.CFrame * CFrame.Angles(0, math.rad(90), 0) * CFrame.new(0, 0, -1)
-        })
-        
-        local returnTween = TweenService:Create(handle, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            CFrame = CFrame.new(originalPosition) * CFrame.Angles(
-                math.rad(originalOrientation.X),
-                math.rad(originalOrientation.Y),
-                math.rad(originalOrientation.Z)
-            )
-        })
-        
-        swingTween:Play()
-        swingTween.Completed:Connect(function()
-            returnTween:Play()
-        end)
-    end
-    
-    -- Отслеживаем использование инструментов
-    local function onToolActivated(tool)
-        if SwingAnimation_Enabled then
-            playSwingAnimation(tool)
-        end
-    end
-    
-    -- Подключаемся к существующим инструментам
-    for _, tool in ipairs(player.Character:GetChildren()) do
-        if tool:IsA("Tool") then
-            local conn = tool.Activated:Connect(function()
-                onToolActivated(tool)
-            end)
-            table.insert(SwingAnimationConnections, conn)
-        end
-    end
-    
-    -- Отслеживаем новые инструменты
-    local conn = player.Character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            local toolConn = child.Activated:Connect(function()
-                onToolActivated(child)
-            end)
-            table.insert(SwingAnimationConnections, toolConn)
-        end
-    end)
-    table.insert(SwingAnimationConnections, conn)
-end
-
--- Infinity Jump
-UserInputService.JumpRequest:Connect(function()
-    if InfinityJump_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            task.wait(0.1)
-        end
-    end
-end)
-
--- Speed Hack
-RunService.Heartbeat:Connect(function()
-    if Speed_Enabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = WalkSpeed_Value
-        end
-    elseif player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.WalkSpeed ~= 16 then
-            humanoid.WalkSpeed = 16
-        end
-    end
-    
-    -- Run No Fall and Anti Knockback checks
-    noFall()
-    antiKnockback()
-end)
-
--- UI Кнопки
-local btnWidth = 0.4
-local btnHeight = 28
-local btnSpacingY = 30
-
-local function createToggleButton(name, positionX, positionY, callback)
-    local button = new("TextButton", {
-        Parent = window,
-        Size = UDim2.new(btnWidth, 0, 0, btnHeight),
-        Position = UDim2.new(positionX, 0, 0, positionY),
-        BackgroundColor3 = Color3.fromRGB(40,40,40),
-        BackgroundTransparency = 0,
-        Text = name,
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
-    })
-    new("UICorner", {Parent = button, CornerRadius = UDim.new(0,6)})
-    button.MouseButton1Click:Connect(function()
-        local state = callback()
-        if state then
-            button.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            button.BackgroundTransparency = 0.7
-        else
-            button.BackgroundColor3 = Color3.fromRGB(40,40,40)
-            button.BackgroundTransparency = 0
-        end
-    end)
-    return button
-end
-
--- Кнопки
-createToggleButton("ESP", 0.05, 85, function()
-    ESP_Enabled = not ESP_Enabled
-    return ESP_Enabled
-end)
-
-createToggleButton("Hitbox", 0.55, 85, function()
-    Hitbox_Enabled = not Hitbox_Enabled
-    if Hitbox_Enabled then
-        expandHitboxes()
-    else
-        resetHitboxes()
-    end
-    return Hitbox_Enabled
-end)
-
-createToggleButton("Wallhack", 0.05, 85 + btnSpacingY, function()
-    Wallhack_Enabled = not Wallhack_Enabled
-    setWallhack(Wallhack_Enabled)
-    return Wallhack_Enabled
-end)
-
-createToggleButton("Tracer", 0.55, 85 + btnSpacingY, function()
-    Tracer_Enabled = not Tracer_Enabled
-    return Tracer_Enabled
-end)
-
-createToggleButton("Infinity Jump", 0.05, 85 + btnSpacingY*2, function()
-    InfinityJump_Enabled = not InfinityJump_Enabled
-    return InfinityJump_Enabled
-end)
-
--- Fast Bullets кнопка
-createToggleButton("Fast Bullets", 0.55, 85 + btnSpacingY*2, function()
-    FastBullets_Enabled = not FastBullets_Enabled
-    if FastBullets_Enabled and player.Character then
-        setupFastBullets()
-    else
-        for _, conn in pairs(FastBulletsConnections) do
-            conn:Disconnect()
-        end
-        FastBulletsConnections = {}
-    end
-    return FastBullets_Enabled
-end)
-
--- Hit Effect кнопка
-createToggleButton("Hit Effect", 0.05, 85 + btnSpacingY*3, function()
-    HitEffect_Enabled = not HitEffect_Enabled
-    if HitEffect_Enabled then
-        setupGlobalHitEffect()
-    end
-    return HitEffect_Enabled
-end)
-
--- Swing Animation кнопка
-createToggleButton("Swing Anim", 0.55, 85 + btnSpacingY*3, function()
-    SwingAnimation_Enabled = not SwingAnimation_Enabled
-    if SwingAnimation_Enabled and player.Character then
-        setupSwingAnimation()
-    else
-        for _, conn in pairs(SwingAnimationConnections) do
-            conn:Disconnect()
-        end
-        SwingAnimationConnections = {}
-    end
-    return SwingAnimation_Enabled
-end)
-
--- Слайдер скорости
-local speedSlider = new("Frame", {
-    Parent = window,
-    Size = UDim2.new(btnWidth, 0, 0, 20),
-    Position = UDim2.new(0.55, 0, 0.55, 0),
-    BackgroundColor3 = Color3.fromRGB(60,60,60),
-    Visible = false,
-})
-new("UICorner", {Parent = speedSlider, CornerRadius = UDim.new(0,6)})
-
-local speedSliderFill = new("Frame", {
-    Parent = speedSlider,
-    Size = UDim2.new(0.5, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(255,255,255),
-    BackgroundTransparency = 0.7,
-})
-new("UICorner", {Parent = speedSliderFill, CornerRadius = UDim.new(0,6)})
-
-local speedValueLabel = new("TextLabel", {
-    Parent = speedSlider,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Speed: "..WalkSpeed_Value,
-    Font = Enum.Font.SourceSans,
-    TextSize = 14,
-    TextColor3 = Color3.fromRGB(255,255,255),
-})
-
-speedSlider.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        local connection
-        connection = RunService.Heartbeat:Connect(function()
-            local mouse = UserInputService:GetMouseLocation()
-            local sliderPos = speedSlider.AbsolutePosition
-            local sliderSize = speedSlider.AbsoluteSize
-            local relativeX = math.clamp(mouse.X - sliderPos.X, 0, sliderSize.X)
-            local percent = relativeX / sliderSize.X
-            
-            WalkSpeed_Value = math.floor(16 + (100 - 16) * percent)
-            speedValueLabel.Text = "Speed: "..WalkSpeed_Value
-            speedSliderFill.Size = UDim2.new(percent, 0, 1, 0)
-        end)
-        
-        local function disconnect()
+    local connection
+    connection = RunService.RenderStepped:Connect(function(delta)
+        if not label or not label.Parent then
             connection:Disconnect()
+            return
         end
         
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                disconnect()
+        if increasing then
+            shimmer = shimmer + delta * 0.5
+            if shimmer >= 1 then
+                shimmer = 1
+                increasing = false
             end
-        end)
-    end
-end)
-
--- Кнопка Speed
-local speedButton = createToggleButton("Speed", 0.55, 85 + btnSpacingY*4, function()
-    Speed_Enabled = not Speed_Enabled
-    speedSlider.Visible = Speed_Enabled
-    return Speed_Enabled
-end)
-
-createToggleButton("Night Vision", 0.05, 85 + btnSpacingY*4, function()
-    NightVision_Enabled = not NightVision_Enabled
-    setNightVision(NightVision_Enabled)
-    return NightVision_Enabled
-end)
-
-createToggleButton("No Fall", 0.55, 85 + btnSpacingY*5, function()
-    NoFall_Enabled = not NoFall_Enabled
-    return NoFall_Enabled
-end)
-
-createToggleButton("Anti Knockback", 0.05, 85 + btnSpacingY*5, function()
-    AntiKnockback_Enabled = not AntiKnockback_Enabled
-    return AntiKnockback_Enabled
-end)
-
--- Player List с возможностью перемещения
-local playerListFrame = new("Frame", {
-    Parent = screenGui,
-    Size = UDim2.new(0, 150, 0, 180),
-    Position = UDim2.new(1, -160, 0, 10),
-    BackgroundColor3 = Color3.fromRGB(0,0,0),
-    BackgroundTransparency = 0.4,
-    Active = true,
-    Draggable = true,
-})
-new("UICorner", {Parent = playerListFrame, CornerRadius = UDim.new(0,6)})
-
-local titleLabel = new("TextLabel", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, 0, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "Players",
-    Font = Enum.Font.SourceSansBold,
-    TextSize = 16,
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextXAlignment = Enum.TextXAlignment.Center,
-})
-
-local playerListScrolling = new("ScrollingFrame", {
-    Parent = playerListFrame,
-    Size = UDim2.new(1, -10, 1, -30),
-    Position = UDim2.new(0, 5, 0, 25),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-})
-
-local playerListLayout = new("UIListLayout", {
-    Parent = playerListScrolling,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Padding = UDim.new(0, 2),
-})
-
-local function updatePlayerList()
-    for _, child in ipairs(playerListScrolling:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-    
-    local totalHeight = 0
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and 
-           player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            local playerEntry = new("TextLabel", {
-                Parent = playerListScrolling,
-                Size = UDim2.new(1, 0, 0, 16),
-                BackgroundTransparency = 1,
-                Text = plr.Name .. string.format(" [%.0f]", dist),
-                Font = Enum.Font.SourceSans,
-                TextSize = 12,
-                TextColor3 = Color3.fromRGB(255,255,255),
-                TextXAlignment = Enum.TextXAlignment.Center,
-            })
-            totalHeight = totalHeight + 18
-        end
-    end
-    
-    playerListScrolling.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-end
-
-RunService.Heartbeat:Connect(function()
-    updatePlayerList()
-end)
-
--- Логика входа
-local CORRECT_PASSWORD = "FJAL-IIAL-10LL"
-
-loginButton.MouseButton1Click:Connect(function()
-    if passwordBox.Text == CORRECT_PASSWORD then
-        floatBtn.Visible = true
-        loginFrame.Visible = false
-        loginError.Text = ""
-    else
-        loginError.Text = "Неверный пароль!"
-    end
-end)
-
-btn.MouseButton1Click:Connect(function()
-    window.Visible = not window.Visible
-end)
-
-btnClose.MouseButton1Click:Connect(function()
-    window.Visible = false
-end)
-
-Players.PlayerAdded:Connect(function(plr)
-    createESP(plr)
-    if HitEffect_Enabled then
-        if plr.Character then
-            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
-                    if newHealth < oldHealth and HitEffect_Enabled then
-                        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            createHitEffect(rootPart.Position)
-                        end
-                    end
-                end)
+        else
+            shimmer = shimmer - delta * 0.5
+            if shimmer <= 0 then
+                shimmer = 0
+                increasing = true
             end
         end
         
-        plr.CharacterAdded:Connect(function(character)
-            task.wait(1)
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
-                    if newHealth < oldHealth and HitEffect_Enabled then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            createHitEffect(rootPart.Position)
-                        end
-                    end
-                end)
-            end
-        end)
-    end
-    
-    plr.CharacterAdded:Connect(function()
-        if Hitbox_Enabled then
-            task.wait(1)
-            expandHitboxes()
-        end
-        if Wallhack_Enabled then
-            task.wait(1)
-            setWallhack(true)
-        end
-    end)
-end)
-
-Players.PlayerRemoving:Connect(function(plr)
-    if ESP_Connections[plr] then
-        ESP_Connections[plr]:Disconnect()
-        ESP_Connections[plr] = nil
-    end
-end)
-
--- Инициализация функций при загрузке
-if player.Character then
-    setupGlobalHitEffect()
-    setupSwingAnimation()
-else
-    player.CharacterAdded:Connect(function()
-        setupGlobalHitEffect()
-        setupSwingAnimation()
+        label.TextColor3 = Color3.new(shimmer, shimmer, shimmer)
     end)
 end
 
--- Инициализация для существующих игроков
-setupGlobalHitEffect()
+-- Окно ввода ключа
+function FluxClient:CreateKeyWindow()
+    local keyWindow = Instance.new("Frame")
+    keyWindow.Name = "KeyWindow"
+    keyWindow.Size = UDim2.new(0, 300, 0, 180)
+    keyWindow.Position = UDim2.new(0.5, -150, 0.5, -90)
+    keyWindow.BackgroundColor3 = Color3.new(0, 0, 0)
+    keyWindow.BorderSizePixel = 2
+    keyWindow.BorderColor3 = Color3.new(1, 1, 1)
+    keyWindow.Parent = screenGui
+
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "Flux Client"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 24
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Parent = keyWindow
+    
+    -- Создаем переливающийся эффект для заголовка
+    createShimmeringText(title)
+
+    local inputField = Instance.new("TextBox")
+    inputField.Name = "KeyInput"
+    inputField.Size = UDim2.new(0, 260, 0, 40)
+    inputField.Position = UDim2.new(0, 20, 0, 70)
+    inputField.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    inputField.BorderSizePixel = 1
+    inputField.BorderColor3 = Color3.new(1, 1, 1)
+    inputField.Text = ""
+    inputField.PlaceholderText = "Enter key"
+    inputField.Font = Enum.Font.Gotham
+    inputField.TextSize = 18
+    inputField.TextColor3 = Color3.new(1, 1, 1)
+    inputField.Parent = keyWindow
+
+    local submitButton = Instance.new("TextButton")
+    submitButton.Name = "SubmitButton"
+    submitButton.Size = UDim2.new(0, 120, 0, 35)
+    submitButton.Position = UDim2.new(0.5, -60, 0, 125)
+    submitButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    submitButton.BorderSizePixel = 1
+    submitButton.BorderColor3 = Color3.new(1, 1, 1)
+    submitButton.Text = "Submit"
+    submitButton.Font = Enum.Font.Gotham
+    submitButton.TextSize = 18
+    submitButton.TextColor3 = Color3.new(1, 1, 1)
+    submitButton.Parent = keyWindow
+
+    submitButton.MouseButton1Click:Connect(function()
+        -- Здесь будет проверка ключа
+        if inputField.Text == "SECRET_KEY" then -- Замените на свою проверку ключа
+            keyWindow.Visible = false
+            self:CreateMenuButton()
+        else
+            -- Эффект неправильного ключа
+            local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 5, true)
+            local tween = TweenService:Create(inputField, tweenInfo, {BackgroundColor3 = Color3.new(0.5, 0, 0)})
+            tween:Play()
+        end
+    end)
+end
+
+-- Кнопка открытия меню
+function FluxClient:CreateMenuButton()
+    local menuButton = Instance.new("TextButton")
+    menuButton.Name = "MenuButton"
+    menuButton.Size = UDim2.new(0, 100, 0, 40)
+    menuButton.Position = UDim2.new(0, 20, 0, 20)
+    menuButton.BackgroundColor3 = Color3.new(0, 0, 0)
+    menuButton.BorderSizePixel = 2
+    menuButton.BorderColor3 = Color3.new(1, 1, 1)
+    menuButton.Text = "Open Menu"
+    menuButton.Font = Enum.Font.Gotham
+    menuButton.TextSize = 16
+    menuButton.TextColor3 = Color3.new(1, 1, 1)
+    menuButton.Parent = screenGui
+
+    -- Перетаскивание кнопки
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        menuButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    menuButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = menuButton.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    menuButton.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+
+    -- Меню
+    local menuOpen = false
+    local menuFrame
+
+    menuButton.MouseButton1Click:Connect(function()
+        if menuOpen then
+            menuFrame:Destroy()
+            menuOpen = false
+        else
+            menuFrame = Instance.new("Frame")
+            menuFrame.Name = "MenuFrame"
+            menuFrame.Size = UDim2.new(0, 300, 0, 400)
+            menuFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+            menuFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+            menuFrame.BackgroundTransparency = 0.2
+            menuFrame.BorderSizePixel = 2
+            menuFrame.BorderColor3 = Color3.new(1, 1, 1)
+            menuFrame.Parent = screenGui
+
+            local menuTitle = Instance.new("TextLabel")
+            menuTitle.Name = "MenuTitle"
+            menuTitle.Size = UDim2.new(0, 200, 0, 30)
+            menuTitle.Position = UDim2.new(0, 10, 0, 10)
+            menuTitle.BackgroundTransparency = 1
+            menuTitle.Text = "Flux Client"
+            menuTitle.Font = Enum.Font.GothamBold
+            menuTitle.TextSize = 20
+            menuTitle.TextXAlignment = Enum.TextXAlignment.Left
+            menuTitle.TextColor3 = Color3.new(1, 1, 1)
+            menuTitle.Parent = menuFrame
+            
+            -- Переливающийся эффект для заголовка меню
+            createShimmeringText(menuTitle)
+
+            -- Здесь можно добавить элементы меню (кнопки, переключатели и т.д.)
+            
+            menuOpen = true
+        end
+    end)
+end
+
+-- Инициализация
+function FluxClient:Init()
+    self:CreateKeyWindow()
+end
+
+return FluxClient

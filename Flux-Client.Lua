@@ -218,15 +218,14 @@ local Wallhack_Enabled = false
 local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
-local Aimbot_Enabled = false
+local FastBullets_Enabled = false
+local HitEffect_Enabled = false
+local SwingAnimation_Enabled = false
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
-
--- Aimbot переменные
-local Aimbot_Target = nil
-local Aimbot_FOV = 90 -- Field of View в градусах
-local Aimbot_Smoothness = 0.1 -- Плавность наведения
+local FastBulletsConnections = {}
+local SwingAnimationConnections = {}
 
 -- Night Vision
 local function setNightVision(state)
@@ -394,66 +393,208 @@ local function setWallhack(state)
     end
 end
 
--- Aimbot функция
-local function updateAimbot()
-    if not Aimbot_Enabled or not player.Character then 
-        Aimbot_Target = nil
-        return 
+-- Исправленная функция Fast Bullets
+local function setupFastBullets()
+    -- Очищаем старые соединения
+    for _, conn in pairs(FastBulletsConnections) do
+        conn:Disconnect()
     end
-    
-    local playerPos = camera.CFrame.Position
-    local closestTarget = nil
-    local closestDistance = math.huge
-    local fovRad = math.rad(Aimbot_FOV)
-    
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-            local head = plr.Character.Head
-            local headPos = head.Position
-            
-            -- Проверка прямой видимости
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-            raycastParams.FilterDescendantsInstances = {player.Character}
-            raycastParams.IgnoreWater = true
-            
-            local raycastResult = workspace:Raycast(playerPos, (headPos - playerPos).Unit * 500, raycastParams)
-            
-            -- Проверяем, попал ли луч в цель и нет ли стен между нами
-            if raycastResult and raycastResult.Instance:IsDescendantOf(plr.Character) then
-                -- Рассчитываем угол между направлением камеры и целью
-                local cameraDirection = camera.CFrame.LookVector
-                local toTarget = (headPos - playerPos).Unit
-                local angle = math.acos(cameraDirection:Dot(toTarget))
-                
-                -- Проверяем, находится ли цель в FOV
-                if angle <= fovRad then
-                    local distance = (headPos - playerPos).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestTarget = plr
-                    end
-                end
+    FastBulletsConnections = {}
+
+    if not FastBullets_Enabled then return end
+
+    local function modifyProjectile(projectile)
+        if projectile:IsA("BasePart") then
+            local bodyVelocity = projectile:FindFirstChildOfClass("BodyVelocity")
+            if bodyVelocity then
+                bodyVelocity.Velocity = bodyVelocity.Velocity * 2
+            else
+                projectile.Velocity = projectile.Velocity * 2
             end
         end
     end
-    
-    Aimbot_Target = closestTarget
-    
-    -- Если есть цель и мы нажали правую кнопку мыши, наводимся
-    if Aimbot_Target and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local targetHead = Aimbot_Target.Character:FindFirstChild("Head")
-        if targetHead then
-            local currentCFrame = camera.CFrame
-            local targetPosition = targetHead.Position + Vector3.new(0, 0, 0) -- Фиксированное положение головы
-            local direction = (targetPosition - currentCFrame.Position).Unit
-            
-            -- Плавный поворот камеры
-            local newLookVector = currentCFrame.LookVector:Lerp(direction, Aimbot_Smoothness)
-            local newCFrame = CFrame.lookAt(currentCFrame.Position, currentCFrame.Position + newLookVector)
-            camera.CFrame = newCFrame
+
+    -- Отслеживаем новые инструменты
+    local function onChildAdded(child)
+        if child:IsA("Tool") then
+            local conn = child.ChildAdded:Connect(function(projectile)
+                if FastBullets_Enabled then
+                    modifyProjectile(projectile)
+                end
+            end)
+            table.insert(FastBulletsConnections, conn)
         end
     end
+
+    -- Отслеживаем существующие инструменты
+    for _, tool in ipairs(player.Character:GetChildren()) do
+        onChildAdded(tool)
+    end
+
+    local conn = player.Character.ChildAdded:Connect(onChildAdded)
+    table.insert(FastBulletsConnections, conn)
+end
+
+-- Улучшенный Hit Effect в виде светящихся орбов
+local function createHitEffect(position)
+    if not HitEffect_Enabled then return end
+    
+    local colors = {
+        Color3.fromRGB(255, 50, 50),  -- Красный
+        Color3.fromRGB(50, 255, 50),  -- Зеленый
+        Color3.fromRGB(50, 50, 255),  -- Синий
+        Color3.fromRGB(255, 255, 50), -- Желтый
+        Color3.fromRGB(255, 50, 255), -- Пурпурный
+        Color3.fromRGB(50, 255, 255)  -- Голубой
+    }
+    
+    for i = 1, 12 do
+        local part = Instance.new("Part")
+        part.Shape = Enum.PartType.Ball  -- Сферическая форма
+        part.Size = Vector3.new(0.5, 0.5, 0.5)
+        part.Position = position
+        part.Anchored = true
+        part.CanCollide = false
+        part.Material = Enum.Material.Neon
+        part.BrickColor = BrickColor.new("Institutional white")
+        part.Transparency = 0.2
+        
+        local randomColor = colors[math.random(1, #colors)]
+        part.Color = randomColor
+        
+        local pointLight = Instance.new("PointLight")
+        pointLight.Brightness = 8
+        pointLight.Range = 8
+        pointLight.Color = randomColor
+        pointLight.Parent = part
+        
+        part.Parent = workspace
+        
+        local direction = Vector3.new(
+            math.random() * 2 - 1,
+            math.random() * 0.5 + 0.5,
+            math.random() * 2 - 1
+        ).Unit
+        
+        local tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local goal = {}
+        goal.Position = position + direction * (math.random(5, 10))
+        goal.Transparency = 1
+        goal.Size = Vector3.new(0.1, 0.1, 0.1)
+        
+        local tween = TweenService:Create(part, tweenInfo, goal)
+        tween:Play()
+        
+        game.Debris:AddItem(part, 1)
+    end
+end
+
+-- Глобальная система Hit Effect для всех игроков
+local function setupGlobalHitEffect()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if plr.Character then
+                local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                        if newHealth < oldHealth and HitEffect_Enabled then
+                            local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                createHitEffect(rootPart.Position)
+                            end
+                        end
+                    end)
+                end
+            end
+            
+            plr.CharacterAdded:Connect(function(character)
+                task.wait(1) -- Ждем загрузки персонажа
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                        if newHealth < oldHealth and HitEffect_Enabled then
+                            local rootPart = character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                createHitEffect(rootPart.Position)
+                            end
+                        end
+                    end)
+                end
+            end)
+        end
+    end
+end
+
+-- Swing Animation (плавная анимация удара как в майнкрафт)
+local function setupSwingAnimation()
+    -- Очищаем старые соединения
+    for _, conn in pairs(SwingAnimationConnections) do
+        conn:Disconnect()
+    end
+    SwingAnimationConnections = {}
+    
+    if not SwingAnimation_Enabled or not player.Character then return end
+    
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    -- Функция для создания анимации удара
+    local function playSwingAnimation(tool)
+        if not tool:IsA("Tool") then return end
+        
+        local handle = tool:FindFirstChild("Handle")
+        if not handle then return end
+        
+        -- Сохраняем оригинальную позицию
+        local originalPosition = handle.Position
+        local originalOrientation = handle.Orientation
+        
+        -- Анимация удара
+        local swingTween = TweenService:Create(handle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            CFrame = handle.CFrame * CFrame.Angles(0, math.rad(90), 0) * CFrame.new(0, 0, -1)
+        })
+        
+        local returnTween = TweenService:Create(handle, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            CFrame = CFrame.new(originalPosition) * CFrame.Angles(
+                math.rad(originalOrientation.X),
+                math.rad(originalOrientation.Y),
+                math.rad(originalOrientation.Z)
+            )
+        })
+        
+        swingTween:Play()
+        swingTween.Completed:Connect(function()
+            returnTween:Play()
+        end)
+    end
+    
+    -- Отслеживаем использование инструментов
+    local function onToolActivated(tool)
+        if SwingAnimation_Enabled then
+            playSwingAnimation(tool)
+        end
+    end
+    
+    -- Подключаемся к существующим инструментам
+    for _, tool in ipairs(player.Character:GetChildren()) do
+        if tool:IsA("Tool") then
+            local conn = tool.Activated:Connect(function()
+                onToolActivated(tool)
+            end)
+            table.insert(SwingAnimationConnections, conn)
+        end
+    end
+    
+    -- Отслеживаем новые инструменты
+    local conn = player.Character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            local toolConn = child.Activated:Connect(function()
+                onToolActivated(child)
+            end)
+            table.insert(SwingAnimationConnections, toolConn)
+        end
+    end)
+    table.insert(SwingAnimationConnections, conn)
 end
 
 -- Infinity Jump
@@ -467,160 +608,44 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Соединения для кнопок GUI
-btn.MouseButton1Click:Connect(function()
-    window.Visible = not window.Visible
-end)
 
 btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
 end)
 
-loginButton.MouseButton1Click:Connect(function()
-    if passwordBox.Text == "FluxKey123" then
-        loginFrame.Visible = false
-        floatBtn.Visible = true
-        watermark.Visible = true
-    else
-        loginError.Text = "Неверный ключ!"
-        task.wait(2)
-        loginError.Text = ""
-    end
-end)
-
-passwordBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        loginButton:MouseButton1Click()
-    end
-end)
-
--- Контейнер для модулей
-local modulesFrame = new("ScrollingFrame", {
-    Parent = window,
-    Size = UDim2.new(1, -20, 1, -80),
-    Position = UDim2.new(0, 10, 0, 80),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-})
-
-local function createModule(name, defaultValue, callback)
-    local moduleFrame = new("Frame", {
-        Parent = modulesFrame,
-        Size = UDim2.new(1, 0, 0, 40),
-        BackgroundTransparency = 1,
-    })
-    
-    local label = new("TextLabel", {
-        Parent = moduleFrame,
-        Size = UDim2.new(0.7, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = name,
-        Font = Enum.Font.SourceSans,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255,255,255),
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-    
-    local toggle = new("TextButton", {
-        Parent = moduleFrame,
-        Size = UDim2.new(0.25, 0, 0.7, 0),
-        Position = UDim2.new(0.7, 0, 0.15, 0),
-        BackgroundColor3 = defaultValue and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0),
-        Text = defaultValue and "ON" or "OFF",
-        Font = Enum.Font.SourceSans,
-        TextSize = 14,
-        TextColor3 = Color3.fromRGB(255,255,255),
-    })
-    new("UICorner", {Parent = toggle, CornerRadius = UDim.new(0,6)})
-    
-    toggle.MouseButton1Click:Connect(function()
-        local newValue = not defaultValue
-        defaultValue = newValue
-        toggle.BackgroundColor3 = newValue and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-        toggle.Text = newValue and "ON" or "OFF"
-        callback(newValue)
-    end)
-    
-    return moduleFrame
-end
-
--- Создаем модули
-local modules = {}
-modules.ESP = createModule("ESP", ESP_Enabled, function(state)
-    ESP_Enabled = state
-    for plr, conn in pairs(ESP_Connections) do
-        if not state then
-            -- Отключаем видимость ESP
-            for _, drawing in pairs(getconnections(conn)) do
-                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
-                    drawing.Visible = false
-                end
-            end
-        end
-    end
-end)
-
-modules.Tracer = createModule("Tracer", Tracer_Enabled, function(state)
-    Tracer_Enabled = state
-end)
-
-modules.Hitbox = createModule("Hitbox Expand", Hitbox_Enabled, function(state)
-    Hitbox_Enabled = state
-    if state then
-        expandHitboxes()
-    else
-        resetHitboxes()
-    end
-end)
-
-modules.InfinityJump = createModule("Infinity Jump", InfinityJump_Enabled, function(state)
-    InfinityJump_Enabled = state
-end)
-
-modules.Speed = createModule("Speed Hack", Speed_Enabled, function(state)
-    Speed_Enabled = state
-    if state then
-        player.Character.Humanoid.WalkSpeed = WalkSpeed_Value
-    else
-        player.Character.Humanoid.WalkSpeed = 16
-    end
-end)
-
-modules.Wallhack = createModule("Wallhack", Wallhack_Enabled, function(state)
-    Wallhack_Enabled = state
-    setWallhack(state)
-end)
-
-modules.NightVision = createModule("Night Vision", NightVision_Enabled, function(state)
-    NightVision_Enabled = state
-    setNightVision(state)
-end)
-
-modules.NoFall = createModule("No Fall", NoFall_Enabled, function(state)
-    NoFall_Enabled = state
-end)
-
-modules.AntiKnockback = createModule("Anti Knockback", AntiKnockback_Enabled, function(state)
-    AntiKnockback_Enabled = state
-    antiKnockback()
-end)
-
-modules.Aimbot = createModule("Aimbot", Aimbot_Enabled, function(state)
-    Aimbot_Enabled = state
-end)
-
--- Располагаем модули
-local yOffset = 0
-for _, module in pairs(modules) do
-    module.Position = UDim2.new(0, 0, 0, yOffset)
-    yOffset = yOffset + 45
-end
-modulesFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
-
--- Системные подключения
 Players.PlayerAdded:Connect(function(plr)
     createESP(plr)
+    if HitEffect_Enabled then
+        if plr.Character then
+            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                    if newHealth < oldHealth and HitEffect_Enabled then
+                        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            createHitEffect(rootPart.Position)
+                        end
+                    end
+                end)
+            end
+        end
+        
+        plr.CharacterAdded:Connect(function(character)
+            task.wait(1)
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.HealthChanged:Connect(function(oldHealth, newHealth)
+                    if newHealth < oldHealth and HitEffect_Enabled then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            createHitEffect(rootPart.Position)
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+    
     plr.CharacterAdded:Connect(function()
         if Hitbox_Enabled then
             task.wait(1)
@@ -640,46 +665,16 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
--- Основной цикл
-RunService.RenderStepped:Connect(function()
-    if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-        if NoFall_Enabled then
-            noFall()
-        end
-        
-        if Speed_Enabled then
-            player.Character.Humanoid.WalkSpeed = WalkSpeed_Value
-        end
-        
-        -- Обновляем Aimbot
-        updateAimbot()
-    end
-end)
-
--- Функция для обновления видимости при переключении ESP
-local function updateESPVisibility()
-    for plr, conn in pairs(ESP_Connections) do
-        if ESP_Enabled then
-            -- Включаем видимость ESP
-            for _, drawing in pairs(getconnections(conn)) do
-                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
-                    drawing.Visible = true
-                end
-            end
-        else
-            -- Отключаем видимость ESP
-            for _, drawing in pairs(getconnections(conn)) do
-                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
-                    drawing.Visible = false
-                end
-            end
-        end
-    end
+-- Инициализация функций при загрузке
+if player.Character then
+    setupGlobalHitEffect()
+    setupSwingAnimation()
+else
+    player.CharacterAdded:Connect(function()
+        setupGlobalHitEffect()
+        setupSwingAnimation()
+    end)
 end
 
--- Обновляем ESP при изменении настроек
-modules.ESP:FindFirstChildOfClass("TextButton").MouseButton1Click:Connect(function()
-    updateESPVisibility()
-end)
-
-print("Flux Client loaded successfully!")
+-- Инициализация для существующих игроков
+setupGlobalHitEffect()

@@ -3,12 +3,11 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 
 -- Ожидаем загрузку игрока
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local camera = Workspace.CurrentCamera
+local camera = workspace.CurrentCamera
 
 -- Функция для создания объектов
 local function new(className, props)
@@ -220,11 +219,14 @@ local NightVision_Enabled = false
 local NoFall_Enabled = false
 local AntiKnockback_Enabled = false
 local Aimbot_Enabled = false
-local SwingAnimation_Enabled = false
 local WalkSpeed_Value = 40
 local ESP_Connections = {}
 local OriginalSizes = {}
-local SwingAnimationConnections = {}
+
+-- Aimbot переменные
+local Aimbot_Target = nil
+local Aimbot_FOV = 90 -- Field of View в градусах
+local Aimbot_Smoothness = 0.1 -- Плавность наведения
 
 -- Night Vision
 local function setNightVision(state)
@@ -392,189 +394,66 @@ local function setWallhack(state)
     end
 end
 
--- Улучшенный Aimbot
-local AimbotTarget = nil
-local AimbotKey = Enum.UserInputType.MouseButton2 -- Правая кнопка мыши для прицеливания
-local FOV = 90 -- Поле зрения
-local Smoothing = 0.2 -- Сглаживание (0-1, где 0 - мгновенная наводка, 1 - очень плавная)
-
--- Функция для проверки видимости через стены
-local function isVisible(targetPart)
-    if not targetPart then return false end
-    
-    local cameraPosition = camera.CFrame.Position
-    local targetPosition = targetPart.Position
-    
-    -- Проверяем луч от камеры до цели
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {player.Character, targetPart.Parent}
-    raycastParams.IgnoreWater = true
-    
-    local raycastResult = Workspace:Raycast(cameraPosition, (targetPosition - cameraPosition).Unit * 500, raycastParams)
-    
-    if raycastResult then
-        -- Если луч попал во что-то, проверяем, это ли наша цель
-        return raycastResult.Instance:IsDescendantOf(targetPart.Parent)
+-- Aimbot функция
+local function updateAimbot()
+    if not Aimbot_Enabled or not player.Character then 
+        Aimbot_Target = nil
+        return 
     end
     
-    return true
-end
-
--- Функция для нахождения лучшей цели в FOV
-local function getBestTarget()
-    local bestTarget = nil
-    local closestDistance = FOV
-    local currentCamera = Workspace.CurrentCamera
+    local playerPos = camera.CFrame.Position
+    local closestTarget = nil
+    local closestDistance = math.huge
+    local fovRad = math.rad(Aimbot_FOV)
     
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 then
-            local head = plr.Character:FindFirstChild("Head")
-            if head then
-                -- Проверяем видимость через стены
-                if not isVisible(head) then
-                    continue
-                end
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            local headPos = head.Position
+            
+            -- Проверка прямой видимости
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            raycastParams.FilterDescendantsInstances = {player.Character}
+            raycastParams.IgnoreWater = true
+            
+            local raycastResult = workspace:Raycast(playerPos, (headPos - playerPos).Unit * 500, raycastParams)
+            
+            -- Проверяем, попал ли луч в цель и нет ли стен между нами
+            if raycastResult and raycastResult.Instance:IsDescendantOf(plr.Character) then
+                -- Рассчитываем угол между направлением камеры и целью
+                local cameraDirection = camera.CFrame.LookVector
+                local toTarget = (headPos - playerPos).Unit
+                local angle = math.acos(cameraDirection:Dot(toTarget))
                 
-                -- Получаем позицию головы на экране
-                local screenPoint, onScreen = currentCamera:WorldToViewportPoint(head.Position)
-                
-                if onScreen then
-                    -- Вычисляем расстояние от центра экрана до цели
-                    local center = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y / 2)
-                    local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
-                    local distance = (center - targetPos).Magnitude
-                    
-                    -- Конвертируем расстояние в градусы FOV
-                    local fovDistance = distance / (currentCamera.ViewportSize.Y / 2) * (currentCamera.FieldOfView / 2)
-                    
-                    -- Если цель в пределах FOV и ближе чем текущая лучшая цель
-                    if fovDistance <= FOV and fovDistance < closestDistance then
-                        closestDistance = fovDistance
-                        bestTarget = head
+                -- Проверяем, находится ли цель в FOV
+                if angle <= fovRad then
+                    local distance = (headPos - playerPos).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestTarget = plr
                     end
                 end
             end
         end
     end
     
-    return bestTarget
-end
-
--- Основная функция Aimbot
-local function aimbotLoop()
-    if Aimbot_Enabled and AimbotTarget and player.Character then
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        
-        -- Получаем текущее положение камеры
-        local currentCFrame = camera.CFrame
-        
-        -- Вычисляем направление к цели
-        local targetPosition = AimbotTarget.Position
-        local direction = (targetPosition - currentCFrame.Position).Unit
-        
-        -- Создаем новый CFrame, смотрящий на цель
-        local lookCFrame = CFrame.new(currentCFrame.Position, currentCFrame.Position + direction)
-        
-        -- Применяем сглаживание
-        local smoothedCFrame = currentCFrame:Lerp(lookCFrame, 1 - Smoothing)
-        
-        -- Применяем к камере
-        camera.CFrame = smoothedCFrame
-    end
-end
-
--- Обработка нажатия кнопки для Aimbot
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+    Aimbot_Target = closestTarget
     
-    if input.UserInputType == AimbotKey then
-        if Aimbot_Enabled then
-            AimbotTarget = getBestTarget()
+    -- Если есть цель и мы нажали правую кнопку мыши, наводимся
+    if Aimbot_Target and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local targetHead = Aimbot_Target.Character:FindFirstChild("Head")
+        if targetHead then
+            local currentCFrame = camera.CFrame
+            local targetPosition = targetHead.Position + Vector3.new(0, 0, 0) -- Фиксированное положение головы
+            local direction = (targetPosition - currentCFrame.Position).Unit
+            
+            -- Плавный поворот камеры
+            local newLookVector = currentCFrame.LookVector:Lerp(direction, Aimbot_Smoothness)
+            local newCFrame = CFrame.lookAt(currentCFrame.Position, currentCFrame.Position + newLookVector)
+            camera.CFrame = newCFrame
         end
     end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == AimbotKey then
-        AimbotTarget = nil
-    end
-end)
-
--- Запускаем цикл Aimbot
-RunService.RenderStepped:Connect(aimbotLoop)
-
--- Swing Animation (плавная анимация удара как в майнкрафт)
-local function setupSwingAnimation()
-    -- Очищаем старые соединения
-    for _, conn in pairs(SwingAnimationConnections) do
-        conn:Disconnect()
-    end
-    SwingAnimationConnections = {}
-    
-    if not SwingAnimation_Enabled or not player.Character then return end
-    
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    
-    -- Функция для создания анимации удара
-    local function playSwingAnimation(tool)
-        if not tool:IsA("Tool") then return end
-        
-        local handle = tool:FindFirstChild("Handle")
-        if not handle then return end
-        
-        -- Сохраняем оригинальную позицию
-        local originalPosition = handle.Position
-        local originalOrientation = handle.Orientation
-        
-        -- Анимация удара
-        local swingTween = TweenService:Create(handle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            CFrame = handle.CFrame * CFrame.Angles(0, math.rad(90), 0) * CFrame.new(0, 0, -1)
-        })
-        
-        local returnTween = TweenService:Create(handle, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            CFrame = CFrame.new(originalPosition) * CFrame.Angles(
-                math.rad(originalOrientation.X),
-                math.rad(originalOrientation.Y),
-                math.rad(originalOrientation.Z)
-            )
-        })
-        
-        swingTween:Play()
-        swingTween.Completed:Connect(function()
-            returnTween:Play()
-        end)
-    end
-    
-    -- Отслеживаем использование инструментов
-    local function onToolActivated(tool)
-        if SwingAnimation_Enabled then
-            playSwingAnimation(tool)
-        end
-    end
-    
-    -- Подключаемся к существующим инструментам
-    for _, tool in ipairs(player.Character:GetChildren()) do
-        if tool:IsA("Tool") then
-            local conn = tool.Activated:Connect(function()
-                onToolActivated(tool)
-            end)
-            table.insert(SwingAnimationConnections, conn)
-        end
-    end
-    
-    -- Отслеживаем новые инструменты
-    local conn = player.Character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            local toolConn = child.Activated:Connect(function()
-                onToolActivated(child)
-            end)
-            table.insert(SwingAnimationConnections, toolConn)
-        end
-    end)
-    table.insert(SwingAnimationConnections, conn)
 end
 
 -- Infinity Jump
@@ -588,14 +467,160 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Соединения для кнопок GUI
+btn.MouseButton1Click:Connect(function()
+    window.Visible = not window.Visible
+end)
 
 btnClose.MouseButton1Click:Connect(function()
     window.Visible = false
 end)
 
+loginButton.MouseButton1Click:Connect(function()
+    if passwordBox.Text == "FluxKey123" then
+        loginFrame.Visible = false
+        floatBtn.Visible = true
+        watermark.Visible = true
+    else
+        loginError.Text = "Неверный ключ!"
+        task.wait(2)
+        loginError.Text = ""
+    end
+end)
+
+passwordBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        loginButton:MouseButton1Click()
+    end
+end)
+
+-- Контейнер для модулей
+local modulesFrame = new("ScrollingFrame", {
+    Parent = window,
+    Size = UDim2.new(1, -20, 1, -80),
+    Position = UDim2.new(0, 10, 0, 80),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 4,
+})
+
+local function createModule(name, defaultValue, callback)
+    local moduleFrame = new("Frame", {
+        Parent = modulesFrame,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+    })
+    
+    local label = new("TextLabel", {
+        Parent = moduleFrame,
+        Size = UDim2.new(0.7, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = name,
+        Font = Enum.Font.SourceSans,
+        TextSize = 16,
+        TextColor3 = Color3.fromRGB(255,255,255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    
+    local toggle = new("TextButton", {
+        Parent = moduleFrame,
+        Size = UDim2.new(0.25, 0, 0.7, 0),
+        Position = UDim2.new(0.7, 0, 0.15, 0),
+        BackgroundColor3 = defaultValue and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0),
+        Text = defaultValue and "ON" or "OFF",
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(255,255,255),
+    })
+    new("UICorner", {Parent = toggle, CornerRadius = UDim.new(0,6)})
+    
+    toggle.MouseButton1Click:Connect(function()
+        local newValue = not defaultValue
+        defaultValue = newValue
+        toggle.BackgroundColor3 = newValue and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
+        toggle.Text = newValue and "ON" or "OFF"
+        callback(newValue)
+    end)
+    
+    return moduleFrame
+end
+
+-- Создаем модули
+local modules = {}
+modules.ESP = createModule("ESP", ESP_Enabled, function(state)
+    ESP_Enabled = state
+    for plr, conn in pairs(ESP_Connections) do
+        if not state then
+            -- Отключаем видимость ESP
+            for _, drawing in pairs(getconnections(conn)) do
+                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
+                    drawing.Visible = false
+                end
+            end
+        end
+    end
+end)
+
+modules.Tracer = createModule("Tracer", Tracer_Enabled, function(state)
+    Tracer_Enabled = state
+end)
+
+modules.Hitbox = createModule("Hitbox Expand", Hitbox_Enabled, function(state)
+    Hitbox_Enabled = state
+    if state then
+        expandHitboxes()
+    else
+        resetHitboxes()
+    end
+end)
+
+modules.InfinityJump = createModule("Infinity Jump", InfinityJump_Enabled, function(state)
+    InfinityJump_Enabled = state
+end)
+
+modules.Speed = createModule("Speed Hack", Speed_Enabled, function(state)
+    Speed_Enabled = state
+    if state then
+        player.Character.Humanoid.WalkSpeed = WalkSpeed_Value
+    else
+        player.Character.Humanoid.WalkSpeed = 16
+    end
+end)
+
+modules.Wallhack = createModule("Wallhack", Wallhack_Enabled, function(state)
+    Wallhack_Enabled = state
+    setWallhack(state)
+end)
+
+modules.NightVision = createModule("Night Vision", NightVision_Enabled, function(state)
+    NightVision_Enabled = state
+    setNightVision(state)
+end)
+
+modules.NoFall = createModule("No Fall", NoFall_Enabled, function(state)
+    NoFall_Enabled = state
+end)
+
+modules.AntiKnockback = createModule("Anti Knockback", AntiKnockback_Enabled, function(state)
+    AntiKnockback_Enabled = state
+    antiKnockback()
+end)
+
+modules.Aimbot = createModule("Aimbot", Aimbot_Enabled, function(state)
+    Aimbot_Enabled = state
+end)
+
+-- Располагаем модули
+local yOffset = 0
+for _, module in pairs(modules) do
+    module.Position = UDim2.new(0, 0, 0, yOffset)
+    yOffset = yOffset + 45
+end
+modulesFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+
+-- Системные подключения
 Players.PlayerAdded:Connect(function(plr)
     createESP(plr)
-    
     plr.CharacterAdded:Connect(function()
         if Hitbox_Enabled then
             task.wait(1)
@@ -615,11 +640,46 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
--- Инициализация функций при загрузке
-if player.Character then
-    setupSwingAnimation()
-else
-    player.CharacterAdded:Connect(function()
-        setupSwingAnimation()
-    end)
+-- Основной цикл
+RunService.RenderStepped:Connect(function()
+    if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+        if NoFall_Enabled then
+            noFall()
+        end
+        
+        if Speed_Enabled then
+            player.Character.Humanoid.WalkSpeed = WalkSpeed_Value
+        end
+        
+        -- Обновляем Aimbot
+        updateAimbot()
+    end
+end)
+
+-- Функция для обновления видимости при переключении ESP
+local function updateESPVisibility()
+    for plr, conn in pairs(ESP_Connections) do
+        if ESP_Enabled then
+            -- Включаем видимость ESP
+            for _, drawing in pairs(getconnections(conn)) do
+                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
+                    drawing.Visible = true
+                end
+            end
+        else
+            -- Отключаем видимость ESP
+            for _, drawing in pairs(getconnections(conn)) do
+                if drawing and drawing.ClassName == "Line" or drawing.ClassName == "Square" then
+                    drawing.Visible = false
+                end
+            end
+        end
+    end
 end
+
+-- Обновляем ESP при изменении настроек
+modules.ESP:FindFirstChildOfClass("TextButton").MouseButton1Click:Connect(function()
+    updateESPVisibility()
+end)
+
+print("Flux Client loaded successfully!")
